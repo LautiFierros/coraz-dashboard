@@ -221,18 +221,34 @@
     <div class="card" style="padding:16px;">
       <div class="calc-row">
         <div class="calc-field">
-          <label>Días hacia atrás (base de cálculo)</label>
-          <input type="number" id="calcLookback" value="30" min="1" />
+          <label>Tramo 1 — reciente (días)</label>
+          <input type="number" id="calcCorte1" value="7" min="1" />
         </div>
+        <div class="calc-field">
+          <label>Tramo 2 — corte (días)</label>
+          <input type="number" id="calcCorte2" value="30" min="2" />
+        </div>
+        <div class="calc-field">
+          <label>Tramo 3 — total historial (días)</label>
+          <input type="number" id="calcLookback" value="90" min="3" />
+        </div>
+      </div>
+      <div class="presets" id="weightPresets" style="margin-bottom:0">
+        <button class="preset" data-preset="plano">Plano</button>
+        <button class="preset" data-preset="moderado">Moderado</button>
+        <button class="preset" data-preset="agresivo">Agresivo</button>
+        <button class="preset" data-preset="muy_agresivo">Muy agresivo</button>
+      </div>
+      <div class="calc-row" style="margin-top:14px">
         <div class="calc-field">
           <label>Días de cobertura a comprar</label>
           <input type="number" id="calcCoverage" value="15" min="1" />
         </div>
       </div>
-      <div class="kpi-sub" id="calcStatus">Calculando con los últimos 30 días…</div>
+      <div class="kpi-sub" id="calcStatus">Calculando…</div>
     </div>
     <div class="card">
-      <div class="buy-table-head"><div>SKU</div><div style="text-align:right">VEL./DÍA</div><div style="text-align:right">COMPRAR</div></div>
+      <div class="buy-table-head"><div>SKU</div><div style="text-align:right">VEL./DÍA POND.</div><div style="text-align:right">COMPRAR</div></div>
       <div id="buyTableBody"><div class="empty">Cargando…</div></div>
     </div>
   </div>
@@ -492,70 +508,142 @@
     if(window.__lastData) renderGoal(window.__lastData);
   });
 
-  // ---------- Calculadora de compra (independiente del selector de período principal) ----------
+  // ---------- Calculadora de compra ponderada por tramos ----------
+  var CORTE1_KEY = 'coraz_dash_corte1';
+  var CORTE2_KEY = 'coraz_dash_corte2';
   var LOOKBACK_KEY = 'coraz_dash_lookback';
   var COVERAGE_KEY = 'coraz_dash_coverage';
+  var WEIGHT_PRESET_KEY = 'coraz_dash_weight_preset';
+
+  var WEIGHT_PRESETS = {
+    plano: [1, 1, 1],
+    moderado: [3, 2, 1],
+    agresivo: [6, 3, 1],
+    muy_agresivo: [10, 3, 1]
+  };
+  var activeWeightPreset = localStorage.getItem(WEIGHT_PRESET_KEY) || 'moderado';
+
+  function setWeightPresetButtons(){
+    document.querySelectorAll('#weightPresets .preset').forEach(function(btn){
+      btn.classList.toggle('active', btn.dataset.preset === activeWeightPreset);
+    });
+  }
+
+  function fetchTramo(fromStr, toStr){
+    return fetch(FN_BASE + '?from=' + fromStr + '&to=' + toStr, { headers: { Authorization: authHeader() } })
+      .then(function(resp){
+        if(resp.status === 401){ throw new Error('__unauth__'); }
+        if(!resp.ok) throw new Error('HTTP ' + resp.status);
+        return resp.json();
+      });
+  }
 
   function loadBuyCalc(){
-    var lookback = Math.max(1, parseInt(document.getElementById('calcLookback').value, 10) || 30);
+    var corte1 = Math.max(1, parseInt(document.getElementById('calcCorte1').value, 10) || 7);
+    var corte2 = Math.max(corte1 + 1, parseInt(document.getElementById('calcCorte2').value, 10) || 30);
+    var lookback = Math.max(corte2 + 1, parseInt(document.getElementById('calcLookback').value, 10) || 90);
     var coverage = Math.max(1, parseInt(document.getElementById('calcCoverage').value, 10) || 15);
+
+    // corrige inputs si el usuario dejo algo inconsistente (ej. corte2 < corte1)
+    document.getElementById('calcCorte2').value = corte2;
+    document.getElementById('calcLookback').value = lookback;
+
+    localStorage.setItem(CORTE1_KEY, corte1);
+    localStorage.setItem(CORTE2_KEY, corte2);
     localStorage.setItem(LOOKBACK_KEY, lookback);
     localStorage.setItem(COVERAGE_KEY, coverage);
 
     var statusEl = document.getElementById('calcStatus');
     var tbody = document.getElementById('buyTableBody');
-    statusEl.textContent = 'Calculando con los últimos ' + lookback + ' días…';
+    statusEl.textContent = 'Calculando (tramos: ' + corte1 + ' / ' + corte2 + ' / ' + lookback + ' días)…';
     tbody.innerHTML = '<div class="empty">Cargando…</div>';
 
     var now = new Date();
-    var to = isoDate(now);
-    var from = new Date(now);
-    from.setDate(from.getDate() - (lookback - 1));
-    var fromStr = isoDate(from);
+    var today = isoDate(now);
 
-    fetch(FN_BASE + '?from=' + fromStr + '&to=' + to, { headers: { Authorization: authHeader() } })
-      .then(function(resp){
-        if(resp.status === 401){ throw new Error('__unauth__'); }
-        if(!resp.ok) throw new Error('HTTP ' + resp.status);
-        return resp.json();
-      })
-      .then(function(json){
-        if(json.error) throw new Error(json.error);
-        var rows = (json.by_sku || []).map(function(s){
-          var vel = s.units / lookback;
-          var toBuy = Math.ceil(vel * coverage);
-          return { sku: s.sku, vel: vel, toBuy: toBuy };
-        }).filter(function(r){ return r.toBuy > 0; })
-          .sort(function(a,b){ return b.toBuy - a.toBuy; });
+    function daysAgo(n){ var d = new Date(now); d.setDate(d.getDate() - n); return isoDate(d); }
 
-        statusEl.textContent = 'Basado en ' + lookback + ' días de historial → sugerencia para cubrir ' + coverage + ' días.';
+    // Tramo 1: hoy hacia atras corte1 dias. Tramo 2: corte1+1 hasta corte2. Tramo 3: corte2+1 hasta lookback.
+    var t1 = { from: daysAgo(corte1 - 1), to: today, days: corte1 };
+    var t2 = { from: daysAgo(corte2 - 1), to: daysAgo(corte1), days: corte2 - corte1 };
+    var t3 = { from: daysAgo(lookback - 1), to: daysAgo(corte2), days: lookback - corte2 };
 
-        if(rows.length === 0){
-          tbody.innerHTML = '<div class="empty">Sin ventas en el período elegido.</div>';
-          return;
-        }
-        tbody.innerHTML = rows.map(function(r){
-          return '<div class="buy-row">' +
-            '<div class="mono">' + r.sku + '</div>' +
-            '<div class="mono" style="text-align:right;color:var(--muted)">' + r.vel.toFixed(2) + '</div>' +
-            '<div class="mono buy-qty" style="text-align:right">' + r.toBuy + ' u.</div>' +
-          '</div>';
-        }).join('');
-      })
-      .catch(function(e){
-        if(e && e.message === '__unauth__'){ showGate('La contraseña ya no es válida.'); return; }
-        statusEl.textContent = 'Error: ' + (e.message || String(e));
-        tbody.innerHTML = '';
+    var weights = WEIGHT_PRESETS[activeWeightPreset] || WEIGHT_PRESETS.moderado;
+
+    Promise.all([
+      fetchTramo(t1.from, t1.to),
+      fetchTramo(t2.from, t2.to),
+      fetchTramo(t3.from, t3.to)
+    ]).then(function(results){
+      var tramos = [
+        { data: results[0], days: t1.days, weight: weights[0] },
+        { data: results[1], days: t2.days, weight: weights[1] },
+        { data: results[2], days: t3.days, weight: weights[2] }
+      ];
+
+      var unitsBySku = {}; // sku -> [units_t1, units_t2, units_t3]
+      tramos.forEach(function(tramo, idx){
+        (tramo.data.by_sku || []).forEach(function(row){
+          if(!unitsBySku[row.sku]) unitsBySku[row.sku] = [0,0,0];
+          unitsBySku[row.sku][idx] = row.units;
+        });
       });
+
+      var rows = Object.keys(unitsBySku).map(function(sku){
+        var u = unitsBySku[sku];
+        var velTramos = tramos.map(function(tramo, idx){
+          return tramo.days > 0 ? (u[idx] / tramo.days) : 0;
+        });
+        var weightSum = tramos.reduce(function(s,t){ return s + t.weight; }, 0) || 1;
+        var velPonderada = tramos.reduce(function(s,t,idx){ return s + t.weight * velTramos[idx]; }, 0) / weightSum;
+        var toBuy = Math.ceil(velPonderada * coverage);
+        return { sku: sku, vel: velPonderada, toBuy: toBuy };
+      }).filter(function(r){ return r.toBuy > 0; })
+        .sort(function(a,b){ return b.toBuy - a.toBuy; });
+
+      statusEl.textContent = 'Tramos: últimos ' + corte1 + 'd (peso ' + weights[0] + ') · ' +
+        (corte2-corte1) + 'd previos (peso ' + weights[1] + ') · ' + (lookback-corte2) + 'd previos (peso ' + weights[2] + ') → cobertura ' + coverage + ' días.';
+
+      if(rows.length === 0){
+        tbody.innerHTML = '<div class="empty">Sin ventas en el período elegido.</div>';
+        return;
+      }
+      tbody.innerHTML = rows.map(function(r){
+        return '<div class="buy-row">' +
+          '<div class="mono">' + r.sku + '</div>' +
+          '<div class="mono" style="text-align:right;color:var(--muted)">' + r.vel.toFixed(2) + '</div>' +
+          '<div class="mono buy-qty" style="text-align:right">' + r.toBuy + ' u.</div>' +
+        '</div>';
+      }).join('');
+    }).catch(function(e){
+      if(e && e.message === '__unauth__'){ showGate('La contraseña ya no es válida.'); return; }
+      statusEl.textContent = 'Error: ' + (e.message || String(e));
+      tbody.innerHTML = '';
+    });
   }
 
-  document.getElementById('calcLookback').value = localStorage.getItem(LOOKBACK_KEY) || 30;
+  document.getElementById('calcCorte1').value = localStorage.getItem(CORTE1_KEY) || 7;
+  document.getElementById('calcCorte2').value = localStorage.getItem(CORTE2_KEY) || 30;
+  document.getElementById('calcLookback').value = localStorage.getItem(LOOKBACK_KEY) || 90;
   document.getElementById('calcCoverage').value = localStorage.getItem(COVERAGE_KEY) || 15;
+  setWeightPresetButtons();
+
+  document.getElementById('weightPresets').addEventListener('click', function(e){
+    var btn = e.target.closest('.preset');
+    if(!btn) return;
+    activeWeightPreset = btn.dataset.preset;
+    localStorage.setItem(WEIGHT_PRESET_KEY, activeWeightPreset);
+    setWeightPresetButtons();
+    loadBuyCalc();
+  });
+
   var buyCalcTimer = null;
   function scheduleBuyCalc(){
     clearTimeout(buyCalcTimer);
     buyCalcTimer = setTimeout(loadBuyCalc, 500);
   }
+  document.getElementById('calcCorte1').addEventListener('input', scheduleBuyCalc);
+  document.getElementById('calcCorte2').addEventListener('input', scheduleBuyCalc);
   document.getElementById('calcLookback').addEventListener('input', scheduleBuyCalc);
   document.getElementById('calcCoverage').addEventListener('input', scheduleBuyCalc);
 
