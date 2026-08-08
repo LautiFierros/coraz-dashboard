@@ -72,7 +72,30 @@
   .empty{padding:28px 16px; text-align:center; color:var(--muted); font-size:13px;}
   .footer-note{margin-top:18px; font-size:11px; color:var(--muted); text-align:center;}
 
-  .gate{max-width:340px; margin:80px auto 0; text-align:center;}
+  .kpi-grid{display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-bottom:14px;}
+  .kpi-card{background:var(--card); border:1px solid var(--border); border-radius:14px; padding:14px;}
+  .kpi-label{font-size:10.5px; color:var(--muted); letter-spacing:.04em; margin-bottom:6px;}
+  .kpi-value{font-size:19px; font-weight:700;}
+  .kpi-sub{font-size:11px; color:var(--muted); margin-top:3px;}
+  .bar-row-h{display:grid; grid-template-columns:40px 1fr auto; align-items:center; gap:8px; margin-bottom:8px; font-size:12px;}
+  .goal-input-row{display:flex; gap:8px; align-items:center; margin-top:8px;}
+  .goal-input-row input{
+    flex:1; padding:8px 10px; border-radius:8px; border:1px solid var(--border);
+    background:#0F0D09; color:var(--text); font-family:'IBM Plex Mono',monospace; font-size:13px;
+  }
+  .goal-bar-track{background:#0F0D09; border-radius:6px; height:10px; overflow:hidden; margin-top:10px;}
+  .goal-bar-fill{height:100%; background:var(--amber); border-radius:6px;}
+  .calc-row{display:flex; gap:10px; margin-bottom:14px;}
+  .calc-field{flex:1;}
+  .calc-field label{font-size:10.5px; color:var(--muted); display:block; margin-bottom:5px;}
+  .calc-field input{
+    width:100%; padding:10px 12px; border-radius:10px; border:1px solid var(--border);
+    background:#0F0D09; color:var(--text); font-family:'IBM Plex Mono',monospace; font-size:15px; font-weight:600;
+  }
+  .buy-table-head{display:grid; grid-template-columns:1fr auto auto; padding:10px 14px; font-size:11px; color:var(--muted); letter-spacing:.06em; border-bottom:1px solid var(--border);}
+  .buy-row{display:grid; grid-template-columns:1fr auto auto; padding:11px 14px; font-size:13px; border-bottom:1px solid var(--border); align-items:center;}
+  .buy-row:last-child{border-bottom:none;}
+  .buy-qty{font-weight:700; color:var(--amber);}
   .gate input{
     width:100%; padding:12px 14px; border-radius:10px; border:1px solid var(--border);
     background:var(--card); color:var(--text); font-size:15px; margin-top:16px; font-family:inherit;
@@ -149,7 +172,69 @@
       <div id="tableBody"><div class="empty">Cargando…</div></div>
     </div>
 
-    <div class="footer-note">Datos de Mercado Libre, sincronizados automáticamente. Margen real (con costo) — próximamente.</div>
+    <div class="footer-note" id="footerNote">Datos de Mercado Libre, sincronizados automáticamente. Margen real (con costo) — próximamente.</div>
+
+    <div class="section-label" style="margin-top:24px">Salud del negocio</div>
+    <div class="kpi-grid">
+      <div class="kpi-card">
+        <div class="kpi-label">RUN-RATE DEL MES</div>
+        <div class="kpi-value mono" id="kpiRunRate">—</div>
+        <div class="kpi-sub" id="kpiRunRateSub">—</div>
+      </div>
+      <div class="kpi-card">
+        <div class="kpi-label">CONCENTRACIÓN TOP 3 SKU</div>
+        <div class="kpi-value mono" id="kpiConcentracion">—</div>
+        <div class="kpi-sub">del total facturado</div>
+      </div>
+      <div class="kpi-card">
+        <div class="kpi-label">TASA DE CANCELACIÓN</div>
+        <div class="kpi-value mono" id="kpiCancelacion">—</div>
+        <div class="kpi-sub" id="kpiCancelacionSub">—</div>
+      </div>
+      <div class="kpi-card">
+        <div class="kpi-label">COMISIÓN EFECTIVA ML</div>
+        <div class="kpi-value mono" id="kpiComision">—</div>
+        <div class="kpi-sub">sobre precio bruto</div>
+      </div>
+    </div>
+
+    <div class="section-label">Meta mensual</div>
+    <div class="card" style="padding:14px 16px;">
+      <div class="goal-input-row">
+        <input type="number" id="goalInput" placeholder="Ej: 3000000" />
+        <span style="font-size:12px;color:var(--muted)">ARS / mes</span>
+      </div>
+      <div class="goal-bar-track"><div class="goal-bar-fill" id="goalBarFill" style="width:0%"></div></div>
+      <div class="kpi-sub" id="goalSub" style="margin-top:6px">Cargá tu objetivo mensual para ver el % cumplido.</div>
+    </div>
+
+    <div class="section-label">Medio de pago (período actual)</div>
+    <div class="card" id="paymentCard"><div class="empty">Cargando…</div></div>
+
+    <div class="section-label">Estacionalidad — últimos 90 días</div>
+    <div class="card"><div class="bars" id="dowBars"><div class="empty">Cargando…</div></div></div>
+
+    <div class="section-label">Tendencia mensual</div>
+    <div class="card"><div class="bars" id="monthlyBars"><div class="empty">Cargando…</div></div></div>
+
+    <div class="section-label" style="margin-top:24px">Calculadora de compra</div>
+    <div class="card" style="padding:16px;">
+      <div class="calc-row">
+        <div class="calc-field">
+          <label>Días hacia atrás (base de cálculo)</label>
+          <input type="number" id="calcLookback" value="30" min="1" />
+        </div>
+        <div class="calc-field">
+          <label>Días de cobertura a comprar</label>
+          <input type="number" id="calcCoverage" value="15" min="1" />
+        </div>
+      </div>
+      <div class="kpi-sub" id="calcStatus">Calculando con los últimos 30 días…</div>
+    </div>
+    <div class="card">
+      <div class="buy-table-head"><div>SKU</div><div style="text-align:right">VEL./DÍA</div><div style="text-align:right">COMPRAR</div></div>
+      <div id="buyTableBody"><div class="empty">Cargando…</div></div>
+    </div>
   </div>
 
 <script>
@@ -296,7 +381,183 @@
         }).join('') +
       '</div>';
     }
+
+    renderKpis(data);
+    renderPayments(data);
+    renderSeasonality(data);
+    renderMonthly(data);
+    renderGoal(data);
   }
+
+  function renderKpis(data){
+    var rr = data.run_rate || {};
+    document.getElementById('kpiRunRate').textContent = fmtARS(rr.proyectado);
+    document.getElementById('kpiRunRateSub').textContent =
+      'día ' + (rr.dias_transcurridos||0) + ' de ' + (rr.dias_en_mes||0) + ' · llevás ' + fmtARS(rr.gross_mes_actual);
+
+    document.getElementById('kpiConcentracion').textContent = (data.concentracion_top3_pct||0).toFixed(0) + '%';
+
+    var canc = data.tasa_cancelacion_pct || 0;
+    var cancEl = document.getElementById('kpiCancelacion');
+    cancEl.textContent = canc.toFixed(1) + '%';
+    cancEl.style.color = canc > 8 ? 'var(--red)' : 'var(--text)';
+    document.getElementById('kpiCancelacionSub').textContent =
+      (data.cancelados ? data.cancelados.count : 0) + ' de ' + (data.totals ? data.totals.ventas : 0) + ' ventas';
+
+    var com = data.comision_efectiva_pct;
+    document.getElementById('kpiComision').textContent = (com === null || com === undefined) ? 'sin datos' : com.toFixed(1) + '%';
+  }
+
+  function renderPayments(data){
+    var el = document.getElementById('paymentCard');
+    var pb = data.payment_breakdown || [];
+    if(pb.length === 0){
+      el.innerHTML = '<div class="empty">Sin datos de pago para este período.</div>';
+      return;
+    }
+    var total = pb.reduce(function(s,p){ return s + p.gross; }, 0) || 1;
+    var nameMap = { account_money: 'Dinero en cuenta', credit_card: 'Tarjeta de crédito', debit_card: 'Tarjeta de débito', ticket: 'Efectivo/Rapipago', bank_transfer: 'Transferencia' };
+    el.innerHTML = '<div style="padding:14px">' + pb.map(function(p){
+      var pct = Math.round((p.gross/total)*100);
+      var label = nameMap[p.type] || p.type;
+      return '<div class="bar-row-h">' +
+        '<div class="mono" style="font-size:11px">' + pct + '%</div>' +
+        '<div class="bar-track"><div class="bar-fill" style="width:' + Math.max(4,pct) + '%"></div></div>' +
+        '<div class="mono" style="font-size:11px;white-space:nowrap">' + label + '</div>' +
+      '</div>';
+    }).join('') +
+    '<div class="kpi-sub" style="margin-top:6px">Contado: ' + fmtInt(data.contado_count||0) + ' · Cuotas: ' + fmtInt(data.cuotas_count||0) + '</div>' +
+    '</div>';
+  }
+
+  function renderSeasonality(data){
+    var el = document.getElementById('dowBars');
+    var est = data.estacionalidad || [];
+    if(est.every(function(d){ return d.gross === 0; })){
+      el.innerHTML = '<div class="empty">No hay ventas suficientes en los últimos 90 días.</div>';
+      return;
+    }
+    var max = Math.max.apply(null, est.map(function(d){ return d.gross; })) || 1;
+    el.innerHTML = est.map(function(d){
+      var pct = Math.max(4, Math.round((d.gross/max)*100));
+      return '<div class="bar-row">' +
+        '<div class="mono">' + d.dia + '</div>' +
+        '<div class="bar-track"><div class="bar-fill' + (d.gross===max?' top':'') + '" style="width:' + pct + '%"></div></div>' +
+        '<div class="mono">' + fmtARS(d.gross) + '</div>' +
+      '</div>';
+    }).join('');
+  }
+
+  function renderMonthly(data){
+    var el = document.getElementById('monthlyBars');
+    var mt = data.monthly_trend || [];
+    if(mt.length === 0){
+      el.innerHTML = '<div class="empty">Todavía no hay suficiente histórico mensual.</div>';
+      return;
+    }
+    var max = Math.max.apply(null, mt.map(function(m){ return m.gross; })) || 1;
+    el.innerHTML = mt.map(function(m){
+      var pct = Math.max(4, Math.round((m.gross/max)*100));
+      return '<div class="bar-row">' +
+        '<div class="mono">' + m.month + '</div>' +
+        '<div class="bar-track"><div class="bar-fill' + (m.gross===max?' top':'') + '" style="width:' + pct + '%"></div></div>' +
+        '<div class="mono">' + fmtARS(m.gross) + '</div>' +
+      '</div>';
+    }).join('');
+  }
+
+  var GOAL_KEY = 'coraz_dash_goal';
+  function renderGoal(data){
+    var input = document.getElementById('goalInput');
+    var saved = localStorage.getItem(GOAL_KEY);
+    if(saved && !input.value) input.value = saved;
+    var goal = Number(input.value) || 0;
+    var rr = data.run_rate || {};
+    var actual = rr.gross_mes_actual || 0;
+    var sub = document.getElementById('goalSub');
+    var fill = document.getElementById('goalBarFill');
+    if(goal <= 0){
+      fill.style.width = '0%';
+      sub.textContent = 'Cargá tu objetivo mensual para ver el % cumplido.';
+      return;
+    }
+    var pct = Math.min(100, (actual/goal)*100);
+    fill.style.width = pct + '%';
+    fill.style.background = pct >= 100 ? 'var(--green)' : 'var(--amber)';
+    sub.textContent = fmtARS(actual) + ' de ' + fmtARS(goal) + ' (' + pct.toFixed(0) + '%) · proyectado a fin de mes: ' + fmtARS(rr.proyectado);
+  }
+
+  document.getElementById('goalInput').addEventListener('input', function(){
+    localStorage.setItem(GOAL_KEY, this.value);
+    if(window.__lastData) renderGoal(window.__lastData);
+  });
+
+  // ---------- Calculadora de compra (independiente del selector de período principal) ----------
+  var LOOKBACK_KEY = 'coraz_dash_lookback';
+  var COVERAGE_KEY = 'coraz_dash_coverage';
+
+  function loadBuyCalc(){
+    var lookback = Math.max(1, parseInt(document.getElementById('calcLookback').value, 10) || 30);
+    var coverage = Math.max(1, parseInt(document.getElementById('calcCoverage').value, 10) || 15);
+    localStorage.setItem(LOOKBACK_KEY, lookback);
+    localStorage.setItem(COVERAGE_KEY, coverage);
+
+    var statusEl = document.getElementById('calcStatus');
+    var tbody = document.getElementById('buyTableBody');
+    statusEl.textContent = 'Calculando con los últimos ' + lookback + ' días…';
+    tbody.innerHTML = '<div class="empty">Cargando…</div>';
+
+    var now = new Date();
+    var to = isoDate(now);
+    var from = new Date(now);
+    from.setDate(from.getDate() - (lookback - 1));
+    var fromStr = isoDate(from);
+
+    fetch(FN_BASE + '?from=' + fromStr + '&to=' + to, { headers: { Authorization: authHeader() } })
+      .then(function(resp){
+        if(resp.status === 401){ throw new Error('__unauth__'); }
+        if(!resp.ok) throw new Error('HTTP ' + resp.status);
+        return resp.json();
+      })
+      .then(function(json){
+        if(json.error) throw new Error(json.error);
+        var rows = (json.by_sku || []).map(function(s){
+          var vel = s.units / lookback;
+          var toBuy = Math.ceil(vel * coverage);
+          return { sku: s.sku, vel: vel, toBuy: toBuy };
+        }).filter(function(r){ return r.toBuy > 0; })
+          .sort(function(a,b){ return b.toBuy - a.toBuy; });
+
+        statusEl.textContent = 'Basado en ' + lookback + ' días de historial → sugerencia para cubrir ' + coverage + ' días.';
+
+        if(rows.length === 0){
+          tbody.innerHTML = '<div class="empty">Sin ventas en el período elegido.</div>';
+          return;
+        }
+        tbody.innerHTML = rows.map(function(r){
+          return '<div class="buy-row">' +
+            '<div class="mono">' + r.sku + '</div>' +
+            '<div class="mono" style="text-align:right;color:var(--muted)">' + r.vel.toFixed(2) + '</div>' +
+            '<div class="mono buy-qty" style="text-align:right">' + r.toBuy + ' u.</div>' +
+          '</div>';
+        }).join('');
+      })
+      .catch(function(e){
+        if(e && e.message === '__unauth__'){ showGate('La contraseña ya no es válida.'); return; }
+        statusEl.textContent = 'Error: ' + (e.message || String(e));
+        tbody.innerHTML = '';
+      });
+  }
+
+  document.getElementById('calcLookback').value = localStorage.getItem(LOOKBACK_KEY) || 30;
+  document.getElementById('calcCoverage').value = localStorage.getItem(COVERAGE_KEY) || 15;
+  var buyCalcTimer = null;
+  function scheduleBuyCalc(){
+    clearTimeout(buyCalcTimer);
+    buyCalcTimer = setTimeout(loadBuyCalc, 500);
+  }
+  document.getElementById('calcLookback').addEventListener('input', scheduleBuyCalc);
+  document.getElementById('calcCoverage').addEventListener('input', scheduleBuyCalc);
 
   function load(){
     renderLoading(true);
@@ -320,6 +581,7 @@
       })
       .then(function(json){
         if(json.error) throw new Error(json.error);
+        window.__lastData = json;
         render(json);
       })
       .catch(function(e){
@@ -346,6 +608,7 @@
     document.getElementById('app').classList.remove('hidden');
     setPresetButtons();
     load();
+    loadBuyCalc();
   }
 
   document.getElementById('gateBtn').addEventListener('click', tryEnter);
@@ -368,6 +631,7 @@
     document.getElementById('app').classList.remove('hidden');
     setPresetButtons();
     load();
+    loadBuyCalc();
   }
 })();
 </script>
