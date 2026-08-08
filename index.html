@@ -211,8 +211,8 @@
     <div class="section-label" style="margin-top:24px">Salud del negocio</div>
     <div class="kpi-grid">
       <div class="kpi-card">
-        <button class="help-btn" id="runRateHelpBtn" type="button">?</button>
-        <div class="help-popover" id="runRateHelpPopover">
+        <button class="help-btn" type="button">?</button>
+        <div class="help-popover">
           Es una proyección lineal: toma lo que ya facturaste en lo que va del mes y lo multiplica por los días totales del mes, como si vendieras siempre al mismo ritmo diario. No contempla estacionalidad ni días buenos/malos — es una estimación simple, no una promesa.
         </div>
         <div class="kpi-label">RUN-RATE DEL MES</div>
@@ -220,16 +220,28 @@
         <div class="kpi-sub" id="kpiRunRateSub">—</div>
       </div>
       <div class="kpi-card">
+        <button class="help-btn" type="button">?</button>
+        <div class="help-popover">
+          Qué porcentaje de tu facturación del período depende de tus 3 productos más vendidos. Un número alto significa riesgo: si uno de esos SKU deja de venderse (se pausa, perdés el buybox, se agota), el golpe a tu facturación total es grande.
+        </div>
         <div class="kpi-label">CONCENTRACIÓN TOP 3 SKU</div>
         <div class="kpi-value mono" id="kpiConcentracion">—</div>
         <div class="kpi-sub">del total facturado</div>
       </div>
       <div class="kpi-card">
+        <button class="help-btn" type="button">?</button>
+        <div class="help-popover">
+          Porcentaje de ventas del período que terminaron canceladas, sobre el total de ventas. Un número alto puede señalar problemas de stock, precio mal cargado, o demoras en el despacho que llevan a que el comprador cancele.
+        </div>
         <div class="kpi-label">TASA DE CANCELACIÓN</div>
         <div class="kpi-value mono" id="kpiCancelacion">—</div>
         <div class="kpi-sub" id="kpiCancelacionSub">—</div>
       </div>
       <div class="kpi-card">
+        <button class="help-btn" type="button">?</button>
+        <div class="help-popover">
+          Porcentaje real que se lleva Mercado Libre sobre el precio bruto de cada venta, calculado con la comisión real de cada operación (no un estimado). Te dice cuánto te queda antes de restar tus propios costos de mercadería.
+        </div>
         <div class="kpi-label">COMISIÓN EFECTIVA ML</div>
         <div class="kpi-value mono" id="kpiComision">—</div>
         <div class="kpi-sub">sobre precio bruto</div>
@@ -775,19 +787,27 @@
     pop.style.top = top + 'px';
   }
 
-  document.getElementById('runRateHelpBtn').addEventListener('click', function(e){
-    e.stopPropagation();
-    var pop = document.getElementById('runRateHelpPopover');
-    var willOpen = !pop.classList.contains('open');
-    if(willOpen) positionPopover(this, pop);
-    pop.classList.toggle('open', willOpen);
-  });
+  function closeAllPopovers(except){
+    document.querySelectorAll('.help-popover.open').forEach(function(p){
+      if(p !== except) p.classList.remove('open');
+    });
+  }
+
   document.addEventListener('click', function(e){
-    var pop = document.getElementById('runRateHelpPopover');
-    if(pop.classList.contains('open') && !pop.contains(e.target) && e.target.id !== 'runRateHelpBtn'){
-      pop.classList.remove('open');
+    var btn = e.target.closest('.help-btn');
+    if(btn){
+      e.stopPropagation();
+      var pop = btn.nextElementSibling;
+      var willOpen = !pop.classList.contains('open');
+      closeAllPopovers();
+      if(willOpen){ positionPopover(btn, pop); pop.classList.add('open'); }
+      return;
+    }
+    if(!e.target.closest('.help-popover')){
+      closeAllPopovers();
     }
   });
+  window.addEventListener('resize', function(){ closeAllPopovers(); });
 
   document.getElementById('refreshBtn').addEventListener('click', load);
 
