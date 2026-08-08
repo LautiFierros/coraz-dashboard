@@ -9,7 +9,7 @@
 <style>
   :root{
     --bg:#15130E; --card:#201C14; --border:#332C1D; --text:#F2EDE1;
-    --muted:#948B76; --amber:#E8890C; --amberDim:#7A4E10; --red:#C1503E;
+    --muted:#948B76; --amber:#E8890C; --amberDim:#7A4E10; --red:#C1503E; --green:#7CA25C;
   }
   *{box-sizing:border-box; margin:0; padding:0;}
   body{
@@ -35,6 +35,10 @@
   }
   .preset.active{background:var(--amber); border-color:var(--amber); color:#15130E;}
   .err{background:#2A1714; border:1px solid var(--red); color:#E8A79C; padding:14px; border-radius:10px; margin-bottom:16px; font-size:14px;}
+  .alert{background:#2A1E14; border:1px solid var(--amber); color:var(--text); padding:14px; border-radius:12px; margin-bottom:14px; font-size:13px;}
+  .alert-title{font-weight:600; color:var(--amber); margin-bottom:6px; font-size:12px; letter-spacing:.04em;}
+  .alert-row{display:flex; justify-content:space-between; padding:4px 0; color:var(--muted);}
+  .alert-row span:first-child{color:var(--text); font-family:'IBM Plex Mono',monospace;}
   .hero{
     background:linear-gradient(180deg,var(--card) 0%,#171309 100%); border:1px solid var(--border);
     border-radius:16px; padding:24px 20px; margin-bottom:14px; position:relative; overflow:hidden;
@@ -42,11 +46,19 @@
   .hero::before{content:''; position:absolute; top:0; left:0; right:0; height:3px;
     background:linear-gradient(90deg,transparent,var(--amber),transparent);}
   .hero-label{font-size:11px; color:var(--muted); letter-spacing:.1em; margin-bottom:6px;}
+  .hero-top{display:flex; align-items:baseline; gap:10px; flex-wrap:wrap;}
   .hero-value{font-size:clamp(32px,9vw,48px); font-weight:700; color:var(--amber); line-height:1.1; letter-spacing:-0.01em;}
   .hero-value.loading{color:var(--muted);}
-  .stats{display:flex; gap:22px; margin-top:16px; padding-top:14px; border-top:1px solid var(--border);}
-  .stat-value{font-size:17px; font-weight:600; color:var(--text);}
+  .delta{font-size:13px; font-weight:600; padding:3px 8px; border-radius:6px;}
+  .delta.up{color:var(--green); background:rgba(124,162,92,0.12);}
+  .delta.down{color:var(--red); background:rgba(193,80,62,0.12);}
+  .delta.flat{color:var(--muted); background:rgba(148,139,118,0.12);}
+  .stats{display:flex; gap:22px; margin-top:16px; padding-top:14px; border-top:1px solid var(--border); flex-wrap:wrap;}
+  .stat-value{font-size:17px; font-weight:600; color:var(--text); display:flex; align-items:baseline; gap:6px;}
   .stat-label{font-size:10.5px; color:var(--muted); margin-top:2px;}
+  .stat-delta{font-size:11px; font-weight:600;}
+  .stat-delta.up{color:var(--green);}
+  .stat-delta.down{color:var(--red);}
   .section-label{font-size:11px; letter-spacing:.1em; color:var(--muted); margin-bottom:8px; padding-left:2px; text-transform:uppercase;}
   .card{background:var(--card); border:1px solid var(--border); border-radius:16px; margin-bottom:14px; overflow:hidden;}
   .bars{padding:14px 14px 6px;}
@@ -54,8 +66,8 @@
   .bar-track{background:#0F0D09; border-radius:4px; height:22px; overflow:hidden;}
   .bar-fill{height:100%; border-radius:4px; background:var(--amberDim); display:flex; align-items:center;}
   .bar-fill.top{background:var(--amber);}
-  .table-head{display:grid; grid-template-columns:1fr auto auto; padding:10px 14px; font-size:11px; color:var(--muted); letter-spacing:.06em; border-bottom:1px solid var(--border);}
-  .table-row{display:grid; grid-template-columns:1fr auto auto; padding:11px 14px; font-size:13px; border-bottom:1px solid var(--border); align-items:center;}
+  .table-head{display:grid; grid-template-columns:1fr auto auto auto; padding:10px 14px; font-size:11px; color:var(--muted); letter-spacing:.06em; border-bottom:1px solid var(--border);}
+  .table-row{display:grid; grid-template-columns:1fr auto auto auto; padding:11px 14px; font-size:13px; border-bottom:1px solid var(--border); align-items:center; gap:6px;}
   .table-row:last-child{border-bottom:none;}
   .empty{padding:28px 16px; text-align:center; color:var(--muted); font-size:13px;}
   .footer-note{margin-top:18px; font-size:11px; color:var(--muted); text-align:center;}
@@ -103,23 +115,36 @@
     </div>
 
     <div id="errBox"></div>
+    <div id="stoppedBox"></div>
 
     <div class="hero">
       <div class="hero-label">FACTURADO EN EL PERIODO</div>
-      <div class="hero-value mono loading" id="heroValue">· · ·</div>
+      <div class="hero-top">
+        <div class="hero-value mono loading" id="heroValue">· · ·</div>
+        <div id="heroDelta"></div>
+      </div>
       <div class="stats">
-        <div><div class="stat-value mono" id="statUnits">—</div><div class="stat-label">Unidades</div></div>
-        <div><div class="stat-value mono" id="statVentas">—</div><div class="stat-label">Ventas</div></div>
-        <div><div class="stat-value mono" id="statTicket">—</div><div class="stat-label">Ticket prom.</div></div>
+        <div>
+          <div class="stat-value mono" id="statUnits">—</div>
+          <div class="stat-label">Unidades</div>
+        </div>
+        <div>
+          <div class="stat-value mono" id="statVentas">—</div>
+          <div class="stat-label">Ventas</div>
+        </div>
+        <div>
+          <div class="stat-value mono" id="statTicket">— <span class="stat-delta mono" id="ticketDelta"></span></div>
+          <div class="stat-label">Ticket prom.</div>
+        </div>
       </div>
     </div>
 
     <div class="section-label">Ranking por SKU</div>
     <div class="card"><div class="bars" id="bars"><div class="empty">Cargando…</div></div></div>
 
-    <div class="section-label">Detalle</div>
+    <div class="section-label">Detalle (vs. período anterior)</div>
     <div class="card">
-      <div class="table-head"><div>SKU</div><div style="text-align:right;margin-right:18px">UNID.</div><div style="text-align:right">FACTURADO</div></div>
+      <div class="table-head"><div>SKU</div><div style="text-align:right">UNID.</div><div style="text-align:right">FACTURADO</div><div style="text-align:right">VAR.</div></div>
       <div id="tableBody"><div class="empty">Cargando…</div></div>
     </div>
 
@@ -155,6 +180,23 @@
     return new Intl.NumberFormat('es-AR', { style:'currency', currency:'ARS', maximumFractionDigits:0 }).format(n||0);
   }
   function fmtInt(n){ return new Intl.NumberFormat('es-AR').format(n||0); }
+  function fmtPct(n){
+    if(n === null || n === undefined) return '';
+    var sign = n > 0 ? '+' : '';
+    return sign + n.toFixed(0) + '%';
+  }
+  function deltaClass(n){
+    if(n === null || n === undefined) return 'flat';
+    if(n > 1) return 'up';
+    if(n < -1) return 'down';
+    return 'flat';
+  }
+  function deltaArrow(n){
+    if(n === null || n === undefined) return '';
+    if(n > 1) return '▲';
+    if(n < -1) return '▼';
+    return '·';
+  }
 
   function authHeader(){
     var pw = localStorage.getItem(STORAGE_KEY) || '';
@@ -178,8 +220,10 @@
     if(isLoading){
       document.getElementById('heroValue').textContent = '· · ·';
       document.getElementById('heroValue').classList.add('loading');
+      document.getElementById('heroDelta').innerHTML = '';
       document.getElementById('bars').innerHTML = '<div class="empty">Cargando…</div>';
       document.getElementById('tableBody').innerHTML = '<div class="empty">Cargando…</div>';
+      document.getElementById('stoppedBox').innerHTML = '';
     }
   }
 
@@ -189,10 +233,18 @@
     document.getElementById('heroValue').classList.remove('loading');
     document.getElementById('statUnits').textContent = fmtInt(totals.units);
     document.getElementById('statVentas').textContent = fmtInt(totals.ventas);
-    var ticket = totals.ventas > 0 ? totals.gross / totals.ventas : 0;
-    document.getElementById('statTicket').textContent = fmtARS(ticket);
 
-    var bySku = (data.by_sku || []).slice().sort(function(a,b){ return b.gross - a.gross; });
+    var td = data.totals_delta_pct;
+    document.getElementById('heroDelta').innerHTML = (td === null || td === undefined) ? '' :
+      '<span class="delta ' + deltaClass(td) + '">' + deltaArrow(td) + ' ' + fmtPct(td) + ' vs. período anterior</span>';
+
+    document.getElementById('statTicket').childNodes[0].textContent = fmtARS(data.ticket_promedio) + ' ';
+    var tk = data.ticket_delta_pct;
+    var tkEl = document.getElementById('ticketDelta');
+    tkEl.textContent = (tk === null || tk === undefined) ? '' : deltaArrow(tk) + ' ' + fmtPct(tk);
+    tkEl.className = 'stat-delta mono ' + deltaClass(tk);
+
+    var bySku = (data.by_sku || []).slice();
     var top = bySku.slice(0,8);
     var maxGross = top.length ? Math.max.apply(null, top.map(function(s){return s.gross;})) : 1;
 
@@ -215,12 +267,31 @@
       tbody.innerHTML = '<div class="empty">Sin datos para este período.</div>';
     } else {
       tbody.innerHTML = bySku.map(function(row){
+        var d = row.delta_pct;
+        var cls = deltaClass(d);
+        var color = cls==='up' ? 'var(--green)' : cls==='down' ? 'var(--red)' : 'var(--muted)';
         return '<div class="table-row">' +
           '<div class="mono">' + row.sku + '</div>' +
-          '<div class="mono" style="text-align:right;margin-right:18px;color:var(--muted)">' + fmtInt(row.units) + '</div>' +
+          '<div class="mono" style="text-align:right;color:var(--muted)">' + fmtInt(row.units) + '</div>' +
           '<div class="mono" style="text-align:right;font-weight:600">' + fmtARS(row.gross) + '</div>' +
+          '<div class="mono" style="text-align:right;font-size:11px;color:' + color + '">' +
+            (d === null || d === undefined ? '—' : deltaArrow(d) + ' ' + fmtPct(d)) +
+          '</div>' +
         '</div>';
       }).join('');
+    }
+
+    var stopped = data.stopped || [];
+    var stoppedBox = document.getElementById('stoppedBox');
+    if(stopped.length === 0){
+      stoppedBox.innerHTML = '';
+    } else {
+      stoppedBox.innerHTML = '<div class="alert">' +
+        '<div class="alert-title">⚠ DEJARON DE VENDER (tenían ventas en el período anterior)</div>' +
+        stopped.slice(0,6).map(function(s){
+          return '<div class="alert-row"><span>' + s.sku + '</span><span>vendía: ' + fmtInt(s.prev_units) + ' u. / ' + fmtARS(s.prev_gross) + '</span></div>';
+        }).join('') +
+      '</div>';
     }
   }
 
