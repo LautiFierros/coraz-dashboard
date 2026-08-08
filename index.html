@@ -108,6 +108,7 @@
     </div>
 
     <div class="presets" id="presets">
+      <button class="preset" data-preset="hoy">Hoy</button>
       <button class="preset" data-preset="7d">7D</button>
       <button class="preset" data-preset="30d">30D</button>
       <button class="preset" data-preset="mes">Este mes</button>
@@ -164,7 +165,8 @@
     var now = new Date();
     var to = isoDate(now);
     var from = new Date(now);
-    if(p === '7d'){ from.setDate(from.getDate()-6); }
+    if(p === 'hoy'){ return { from: to, to: to }; }
+    else if(p === '7d'){ from.setDate(from.getDate()-6); }
     else if(p === '30d'){ from.setDate(from.getDate()-29); }
     else if(p === 'mes'){ from = new Date(now.getFullYear(), now.getMonth(), 1); }
     else if(p === 'mes_ant'){
