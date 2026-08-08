@@ -157,7 +157,8 @@
   var FN_BASE = 'https://kvewsxrfogosjwehookj.supabase.co/functions/v1/dashboard-ventas';
   var AUTH_USER = 'lauti';
   var STORAGE_KEY = 'coraz_dash_pw';
-  var preset = '30d';
+  var PRESET_KEY = 'coraz_dash_preset';
+  var preset = localStorage.getItem(PRESET_KEY) || '30d';
 
   function isoDate(d){ return d.toISOString().slice(0,10); }
 
@@ -356,6 +357,7 @@
     var btn = e.target.closest('.preset');
     if(!btn) return;
     preset = btn.dataset.preset;
+    localStorage.setItem(PRESET_KEY, preset);
     setPresetButtons();
     load();
   });
