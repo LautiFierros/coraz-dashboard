@@ -266,13 +266,29 @@
     <div class="card" id="paymentCard"><div class="empty">Cargando…</div></div>
 
     <div class="section-label">Estacionalidad — últimos 90 días</div>
-    <div class="card"><div class="bars" id="dowBars"><div class="empty">Cargando…</div></div></div>
+    <div class="card" style="position:relative;">
+      <button class="help-btn" type="button">?</button>
+      <div class="help-popover">
+        Suma la facturación de los últimos 90 días agrupada por día de la semana (no por fecha puntual). Te muestra qué días tienden a vender más, para saber cuándo reforzar stock, envíos o publicidad.
+      </div>
+      <div class="bars" id="dowBars"><div class="empty">Cargando…</div></div>
+    </div>
 
     <div class="section-label">Tendencia mensual</div>
-    <div class="card"><div class="bars" id="monthlyBars"><div class="empty">Cargando…</div></div></div>
+    <div class="card" style="position:relative;">
+      <button class="help-btn" type="button">?</button>
+      <div class="help-popover">
+        Facturación total por mes calendario, de los últimos 6 meses (sin contar ventas canceladas). Sirve para ver la curva real del negocio en el tiempo, más allá de comparar solo dos períodos puntuales.
+      </div>
+      <div class="bars" id="monthlyBars"><div class="empty">Cargando…</div></div>
+    </div>
 
     <div class="section-label" style="margin-top:24px">Calculadora de compra</div>
-    <div class="card" style="padding:16px;">
+    <div class="card" style="padding:16px; position:relative;">
+      <button class="help-btn" type="button">?</button>
+      <div class="help-popover">
+        Estima cuánto comprar de cada SKU según tu ritmo de venta reciente. Divide el historial en 3 tramos (vos definís dónde cortan) y les asigna un peso a cada uno — así podés darle más importancia a la tendencia reciente que a ventas viejas. El resultado son las unidades sugeridas para cubrir los días de cobertura que elijas.
+      </div>
       <div class="calc-row">
         <div class="calc-field">
           <label>Tramo 1 — reciente (días)</label>
