@@ -48,6 +48,20 @@
     cursor:pointer; font-family:inherit;
   }
   .month-picker.active{border-color:var(--amber); color:var(--amber);}
+  .custom-range-row{display:flex; align-items:center; gap:6px; margin-bottom:20px; flex-wrap:wrap;}
+  .range-input{
+    padding:7px 10px; border-radius:8px; border:1px solid var(--border);
+    background:var(--card); color:var(--text); font-family:'IBM Plex Mono',monospace;
+    font-size:12.5px; color-scheme:dark;
+  }
+  .range-input.active{border-color:var(--amber);}
+  .range-sep{color:var(--muted); font-size:12px;}
+  .range-apply-btn{
+    padding:7px 14px; border-radius:8px; border:1px solid var(--amber);
+    background:transparent; color:var(--amber); font-weight:700; font-size:12.5px;
+    cursor:pointer; font-family:inherit;
+  }
+  .range-apply-btn:active{background:var(--amber); color:#15130E;}
   .err{background:#2A1714; border:1px solid var(--red); color:#E8A79C; padding:14px; border-radius:10px; margin-bottom:16px; font-size:14px;}
   .alert{background:#2A1E14; border:1px solid var(--amber); color:var(--text); padding:14px; border-radius:12px; margin-bottom:14px; font-size:13px;}
   .alert-title{font-weight:600; color:var(--amber); margin-bottom:6px; font-size:12px; letter-spacing:.04em;}
@@ -179,6 +193,13 @@
       <select id="monthPicker" class="month-picker">
         <option value="" disabled selected>Elegir un mes…</option>
       </select>
+    </div>
+
+    <div class="custom-range-row">
+      <input type="date" id="rangeFrom" class="range-input" />
+      <span class="range-sep">→</span>
+      <input type="date" id="rangeTo" class="range-input" />
+      <button id="rangeApplyBtn" class="range-apply-btn" type="button">Aplicar</button>
     </div>
 
     <div id="errBox"></div>
@@ -347,6 +368,10 @@
   if(preset.indexOf('custom:') === 0){
     var restoredMonth = preset.slice(7);
     customRange = Object.assign({ month: restoredMonth }, rangeForMonth(restoredMonth));
+    preset = '';
+  } else if(preset.indexOf('range:') === 0){
+    var parts = preset.slice(6).split(':');
+    customRange = { month: null, from: parts[0], to: parts[1] };
     preset = '';
   }
 
@@ -803,10 +828,15 @@
         window.__lastData = json;
         render(json);
         populateMonthPicker(json.monthly_trend);
-        if(customRange){
+        if(customRange && customRange.month){
           var mp = document.getElementById('monthPicker');
           mp.value = customRange.month;
           mp.classList.add('active');
+        } else if(customRange && !customRange.month){
+          document.getElementById('rangeFrom').value = customRange.from;
+          document.getElementById('rangeTo').value = customRange.to;
+          document.getElementById('rangeFrom').classList.add('active');
+          document.getElementById('rangeTo').classList.add('active');
         }
       })
       .catch(function(e){
@@ -850,6 +880,8 @@
     var mp = document.getElementById('monthPicker');
     mp.value = '';
     mp.classList.remove('active');
+    document.getElementById('rangeFrom').classList.remove('active');
+    document.getElementById('rangeTo').classList.remove('active');
     setPresetButtons();
     load();
   });
@@ -861,7 +893,32 @@
     localStorage.setItem(PRESET_KEY, 'custom:' + month);
     preset = '';
     document.querySelectorAll('#presets .preset').forEach(function(b){ b.classList.remove('active'); });
+    document.getElementById('rangeFrom').classList.remove('active');
+    document.getElementById('rangeTo').classList.remove('active');
     this.classList.add('active');
+    load();
+  });
+
+  document.getElementById('rangeApplyBtn').addEventListener('click', function(){
+    var from = document.getElementById('rangeFrom').value;
+    var to = document.getElementById('rangeTo').value;
+    if(!from || !to){
+      renderError('elegí las dos fechas del rango antes de aplicar.');
+      return;
+    }
+    if(from > to){
+      renderError('la fecha "desde" no puede ser posterior a la fecha "hasta".');
+      return;
+    }
+    customRange = { month: null, from: from, to: to };
+    preset = '';
+    localStorage.setItem(PRESET_KEY, 'range:' + from + ':' + to);
+    document.querySelectorAll('#presets .preset').forEach(function(b){ b.classList.remove('active'); });
+    var mp = document.getElementById('monthPicker');
+    mp.value = '';
+    mp.classList.remove('active');
+    document.getElementById('rangeFrom').classList.add('active');
+    document.getElementById('rangeTo').classList.add('active');
     load();
   });
   function positionPopover(btn, pop){
