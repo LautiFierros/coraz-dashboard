@@ -604,7 +604,7 @@
   }
 
   function fetchTramo(fromStr, toStr){
-    return fetch(FN_BASE + '?from=' + fromStr + '&to=' + toStr, { headers: { Authorization: authHeader() } })
+    return fetch(FN_BASE + '?from=' + fromStr + '&to=' + toStr, { cache: 'no-store', headers: { Authorization: authHeader() } })
       .then(function(resp){
         if(resp.status === 401){ throw new Error('__unauth__'); }
         if(!resp.ok) throw new Error('HTTP ' + resp.status);
@@ -740,6 +740,7 @@
     var timeoutId = setTimeout(function(){ controller.abort(); }, 15000);
     fetch(FN_BASE + '?from=' + r.from + '&to=' + r.to, {
       signal: controller.signal,
+      cache: 'no-store',
       headers: { Authorization: authHeader() }
     })
       .then(function(resp){
@@ -859,7 +860,7 @@
     var controller = new AbortController();
     var timeoutId = setTimeout(function(){ controller.abort(); }, 25000);
 
-    fetch(SYNC_URL, { signal: controller.signal, headers: { Authorization: authHeader() } })
+    fetch(SYNC_URL, { signal: controller.signal, cache: 'no-store', headers: { Authorization: authHeader() } })
       .then(function(resp){
         clearTimeout(timeoutId);
         if(resp.status === 401){ showGate('La contraseña ya no es válida.'); throw new Error('__handled__'); }
