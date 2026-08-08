@@ -241,6 +241,10 @@
       </div>
       <div class="calc-row" style="margin-top:14px">
         <div class="calc-field">
+          <label>Filtrar por SKU (vacío = todos)</label>
+          <input type="text" id="calcSkuFilter" placeholder="Ej: 238" />
+        </div>
+        <div class="calc-field">
           <label>Días de cobertura a comprar</label>
           <input type="number" id="calcCoverage" value="15" min="1" />
         </div>
@@ -552,6 +556,7 @@
     localStorage.setItem(CORTE2_KEY, corte2);
     localStorage.setItem(LOOKBACK_KEY, lookback);
     localStorage.setItem(COVERAGE_KEY, coverage);
+    localStorage.setItem(SKU_FILTER_KEY, document.getElementById('calcSkuFilter').value || '');
 
     var statusEl = document.getElementById('calcStatus');
     var tbody = document.getElementById('buyTableBody');
@@ -598,14 +603,21 @@
         var velPonderada = tramos.reduce(function(s,t,idx){ return s + t.weight * velTramos[idx]; }, 0) / weightSum;
         var toBuy = Math.ceil(velPonderada * coverage);
         return { sku: sku, vel: velPonderada, toBuy: toBuy };
-      }).filter(function(r){ return r.toBuy > 0; })
-        .sort(function(a,b){ return b.toBuy - a.toBuy; });
+      }).filter(function(r){ return r.toBuy > 0; });
+
+      var skuFilter = (document.getElementById('calcSkuFilter').value || '').trim().toLowerCase();
+      if(skuFilter){
+        rows = rows.filter(function(r){ return r.sku.toLowerCase().indexOf(skuFilter) !== -1; });
+      }
+      rows.sort(function(a,b){ return b.toBuy - a.toBuy; });
 
       statusEl.textContent = 'Tramos: últimos ' + corte1 + 'd (peso ' + weights[0] + ') · ' +
         (corte2-corte1) + 'd previos (peso ' + weights[1] + ') · ' + (lookback-corte2) + 'd previos (peso ' + weights[2] + ') → cobertura ' + coverage + ' días.';
 
       if(rows.length === 0){
-        tbody.innerHTML = '<div class="empty">Sin ventas en el período elegido.</div>';
+        tbody.innerHTML = skuFilter
+          ? '<div class="empty">Sin sugerencia de compra para "' + document.getElementById('calcSkuFilter').value + '" en este cálculo.</div>'
+          : '<div class="empty">Sin ventas en el período elegido.</div>';
         return;
       }
       tbody.innerHTML = rows.map(function(r){
@@ -622,10 +634,12 @@
     });
   }
 
+  var SKU_FILTER_KEY = 'coraz_dash_sku_filter';
   document.getElementById('calcCorte1').value = localStorage.getItem(CORTE1_KEY) || 7;
   document.getElementById('calcCorte2').value = localStorage.getItem(CORTE2_KEY) || 30;
   document.getElementById('calcLookback').value = localStorage.getItem(LOOKBACK_KEY) || 90;
   document.getElementById('calcCoverage').value = localStorage.getItem(COVERAGE_KEY) || 15;
+  document.getElementById('calcSkuFilter').value = localStorage.getItem(SKU_FILTER_KEY) || '';
   setWeightPresetButtons();
 
   document.getElementById('weightPresets').addEventListener('click', function(e){
@@ -646,6 +660,7 @@
   document.getElementById('calcCorte2').addEventListener('input', scheduleBuyCalc);
   document.getElementById('calcLookback').addEventListener('input', scheduleBuyCalc);
   document.getElementById('calcCoverage').addEventListener('input', scheduleBuyCalc);
+  document.getElementById('calcSkuFilter').addEventListener('input', scheduleBuyCalc);
 
   function load(){
     renderLoading(true);
