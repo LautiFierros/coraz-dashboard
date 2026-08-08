@@ -81,7 +81,20 @@
   .footer-note{margin-top:18px; font-size:11px; color:var(--muted); text-align:center;}
 
   .kpi-grid{display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-bottom:14px;}
-  .kpi-card{background:var(--card); border:1px solid var(--border); border-radius:14px; padding:14px;}
+  .kpi-card{background:var(--card); border:1px solid var(--border); border-radius:14px; padding:14px; position:relative;}
+  .help-btn{
+    position:absolute; top:10px; right:10px; width:18px; height:18px; border-radius:50%;
+    border:1px solid var(--border); background:transparent; color:var(--muted);
+    font-size:11px; font-weight:700; line-height:1; cursor:pointer; display:flex;
+    align-items:center; justify-content:center; padding:0; font-family:inherit;
+  }
+  .help-btn:hover{color:var(--amber); border-color:var(--amber);}
+  .help-popover{
+    display:none; position:absolute; top:32px; right:10px; z-index:10; width:220px;
+    background:#0F0D09; border:1px solid var(--amber); border-radius:10px; padding:10px 12px;
+    font-size:11.5px; color:var(--text); line-height:1.5; box-shadow:0 8px 24px rgba(0,0,0,0.4);
+  }
+  .help-popover.open{display:block;}
   .kpi-label{font-size:10.5px; color:var(--muted); letter-spacing:.04em; margin-bottom:6px;}
   .kpi-value{font-size:19px; font-weight:700;}
   .kpi-sub{font-size:11px; color:var(--muted); margin-top:3px;}
@@ -198,6 +211,10 @@
     <div class="section-label" style="margin-top:24px">Salud del negocio</div>
     <div class="kpi-grid">
       <div class="kpi-card">
+        <button class="help-btn" id="runRateHelpBtn" type="button">?</button>
+        <div class="help-popover" id="runRateHelpPopover">
+          Es una proyección lineal: toma lo que ya facturaste en lo que va del mes y lo multiplica por los días totales del mes, como si vendieras siempre al mismo ritmo diario. No contempla estacionalidad ni días buenos/malos — es una estimación simple, no una promesa.
+        </div>
         <div class="kpi-label">RUN-RATE DEL MES</div>
         <div class="kpi-value mono" id="kpiRunRate">—</div>
         <div class="kpi-sub" id="kpiRunRateSub">—</div>
@@ -748,6 +765,17 @@
     setPresetButtons();
     load();
   });
+  document.getElementById('runRateHelpBtn').addEventListener('click', function(e){
+    e.stopPropagation();
+    document.getElementById('runRateHelpPopover').classList.toggle('open');
+  });
+  document.addEventListener('click', function(e){
+    var pop = document.getElementById('runRateHelpPopover');
+    if(pop.classList.contains('open') && !pop.contains(e.target) && e.target.id !== 'runRateHelpBtn'){
+      pop.classList.remove('open');
+    }
+  });
+
   document.getElementById('refreshBtn').addEventListener('click', load);
 
   // ---------- Cuenta regresiva hasta la proxima corrida del cron (cada hora en punto) ----------
