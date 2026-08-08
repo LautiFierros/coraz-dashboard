@@ -147,7 +147,7 @@
     </div>
 
     <div class="cron-info" id="cronInfo">
-      <span class="mono" id="cronCountdown">--:--</span>
+      <span class="mono" id="cronCountdown">--:--:--</span>
       <span class="cron-explain">hasta la próxima sincronización automática (corre sola cada hora). Si vendiste algo recién, tocá "Sincronizar" para verlo ya.</span>
     </div>
 
@@ -757,10 +757,11 @@
     next.setMinutes(0, 0, 0);
     next.setHours(next.getHours() + 1);
     var diff = Math.max(0, next.getTime() - now.getTime());
-    var mm = Math.floor(diff / 60000);
+    var hh = Math.floor(diff / 3600000);
+    var mm = Math.floor((diff % 3600000) / 60000);
     var ss = Math.floor((diff % 60000) / 1000);
     document.getElementById('cronCountdown').textContent =
-      String(mm).padStart(2,'0') + ':' + String(ss).padStart(2,'0');
+      String(hh).padStart(2,'0') + ':' + String(mm).padStart(2,'0') + ':' + String(ss).padStart(2,'0');
   }
   updateCountdown();
   setInterval(updateCountdown, 1000);
