@@ -42,6 +42,12 @@
     cursor:pointer; font-family:inherit;
   }
   .preset.active{background:var(--amber); border-color:var(--amber); color:#15130E;}
+  .month-picker{
+    padding:7px 12px; border-radius:999px; border:1px solid var(--border);
+    background:var(--card); color:var(--muted); font-weight:600; font-size:13px;
+    cursor:pointer; font-family:inherit;
+  }
+  .month-picker.active{border-color:var(--amber); color:var(--amber);}
   .err{background:#2A1714; border:1px solid var(--red); color:#E8A79C; padding:14px; border-radius:10px; margin-bottom:16px; font-size:14px;}
   .alert{background:#2A1E14; border:1px solid var(--amber); color:var(--text); padding:14px; border-radius:12px; margin-bottom:14px; font-size:13px;}
   .alert-title{font-weight:600; color:var(--amber); margin-bottom:6px; font-size:12px; letter-spacing:.04em;}
@@ -170,6 +176,9 @@
       <button class="preset" data-preset="30d">30D</button>
       <button class="preset" data-preset="mes">Este mes</button>
       <button class="preset" data-preset="mes_ant">Mes anterior</button>
+      <select id="monthPicker" class="month-picker">
+        <option value="" disabled selected>Elegir un mes…</option>
+      </select>
     </div>
 
     <div id="errBox"></div>
@@ -334,6 +343,42 @@
   var STORAGE_KEY = 'coraz_dash_pw';
   var PRESET_KEY = 'coraz_dash_preset';
   var preset = localStorage.getItem(PRESET_KEY) || '30d';
+  var customRange = null; // { from, to, month } cuando se elige un mes especifico del desplegable
+  if(preset.indexOf('custom:') === 0){
+    var restoredMonth = preset.slice(7);
+    customRange = Object.assign({ month: restoredMonth }, rangeForMonth(restoredMonth));
+    preset = '';
+  }
+
+  var MESES_ES = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
+  function monthLabel(monthStr){ // '2025-08' -> 'Agosto 2025'
+    var parts = monthStr.split('-');
+    var y = parts[0], m = parseInt(parts[1],10) - 1;
+    return MESES_ES[m] + ' ' + y;
+  }
+  function rangeForMonth(monthStr){
+    var parts = monthStr.split('-');
+    var y = parseInt(parts[0],10), m = parseInt(parts[1],10) - 1;
+    var first = new Date(Date.UTC(y, m, 1));
+    var lastOfMonth = new Date(Date.UTC(y, m + 1, 0));
+    var today = new Date();
+    var last = lastOfMonth < today ? lastOfMonth : today;
+    return { from: isoDate(first), to: isoDate(last) };
+  }
+
+  function populateMonthPicker(monthlyTrend){
+    var sel = document.getElementById('monthPicker');
+    var current = sel.value;
+    var months = (monthlyTrend || []).map(function(m){ return m.month; }).slice().sort().reverse();
+    var html = '<option value="" disabled' + (customRange ? '' : ' selected') + '>Elegir un mes…</option>';
+    html += months.map(function(m){
+      var sel2 = (customRange && customRange.month === m) ? ' selected' : '';
+      return '<option value="' + m + '"' + sel2 + '>' + monthLabel(m) + '</option>';
+    }).join('');
+    sel.innerHTML = html;
+    if(!months.length) return;
+    if(!current && customRange) sel.value = customRange.month;
+  }
 
   function isoDate(d){ return d.toISOString().slice(0,10); }
 
@@ -735,7 +780,7 @@
   function load(){
     renderLoading(true);
     renderError(null);
-    var r = rangeFor(preset);
+    var r = customRange || rangeFor(preset);
     var controller = new AbortController();
     var timeoutId = setTimeout(function(){ controller.abort(); }, 15000);
     fetch(FN_BASE + '?from=' + r.from + '&to=' + r.to, {
@@ -757,6 +802,12 @@
         if(json.error) throw new Error(json.error);
         window.__lastData = json;
         render(json);
+        populateMonthPicker(json.monthly_trend);
+        if(customRange){
+          var mp = document.getElementById('monthPicker');
+          mp.value = customRange.month;
+          mp.classList.add('active');
+        }
       })
       .catch(function(e){
         if(e && e.message === '__handled__') return;
@@ -794,8 +845,23 @@
     var btn = e.target.closest('.preset');
     if(!btn) return;
     preset = btn.dataset.preset;
+    customRange = null;
     localStorage.setItem(PRESET_KEY, preset);
+    var mp = document.getElementById('monthPicker');
+    mp.value = '';
+    mp.classList.remove('active');
     setPresetButtons();
+    load();
+  });
+
+  document.getElementById('monthPicker').addEventListener('change', function(){
+    var month = this.value;
+    if(!month) return;
+    customRange = Object.assign({ month: month }, rangeForMonth(month));
+    localStorage.setItem(PRESET_KEY, 'custom:' + month);
+    preset = '';
+    document.querySelectorAll('#presets .preset').forEach(function(b){ b.classList.remove('active'); });
+    this.classList.add('active');
     load();
   });
   function positionPopover(btn, pop){
