@@ -21,12 +21,20 @@
   .title{font-size:22px; font-weight:600;}
   .header{display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:20px;}
   .refresh-btn{
-    width:36px; height:36px; border-radius:10px; border:1px solid var(--border);
+    height:36px; border-radius:10px; border:1px solid var(--border);
     background:var(--card); color:var(--amber); cursor:pointer; display:flex;
     align-items:center; justify-content:center; flex-shrink:0;
   }
+  #refreshBtn{width:36px;}
   .refresh-btn.spinning svg{animation:spin .9s linear infinite;}
+  .refresh-btn:disabled{opacity:.5; cursor:default;}
   @keyframes spin{from{transform:rotate(0)}to{transform:rotate(360deg)}}
+  .cron-info{
+    display:flex; align-items:baseline; gap:8px; flex-wrap:wrap; font-size:11.5px; color:var(--muted);
+    background:var(--card); border:1px solid var(--border); border-radius:10px; padding:9px 12px; margin-bottom:16px;
+  }
+  .cron-info .mono{color:var(--amber); font-weight:700; font-size:13px;}
+  .cron-explain{line-height:1.4;}
   .presets{display:flex; gap:6px; margin-bottom:20px; flex-wrap:wrap;}
   .preset{
     padding:7px 14px; border-radius:999px; border:1px solid var(--border);
@@ -123,11 +131,24 @@
         <div class="eyebrow">CORAZ AUTOPARTES</div>
         <div class="title">Panel de ventas</div>
       </div>
-      <button class="refresh-btn" id="refreshBtn" title="Actualizar">
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
-          <path d="M21 12a9 9 0 1 1-2.64-6.36"/><path d="M21 3v6h-6"/>
-        </svg>
-      </button>
+      <div style="display:flex; gap:8px;">
+        <button class="refresh-btn" id="syncBtn" title="Sincronizar ahora con Mercado Libre" style="width:auto; padding:0 12px; font-size:11px; font-weight:700; gap:6px;">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83"/>
+          </svg>
+          Sincronizar
+        </button>
+        <button class="refresh-btn" id="refreshBtn" title="Actualizar">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M21 12a9 9 0 1 1-2.64-6.36"/><path d="M21 3v6h-6"/>
+          </svg>
+        </button>
+      </div>
+    </div>
+
+    <div class="cron-info" id="cronInfo">
+      <span class="mono" id="cronCountdown">--:--</span>
+      <span class="cron-explain">hasta la próxima sincronización automática (corre sola cada hora). Si vendiste algo recién, tocá "Sincronizar" para verlo ya.</span>
     </div>
 
     <div class="presets" id="presets">
@@ -728,6 +749,56 @@
     load();
   });
   document.getElementById('refreshBtn').addEventListener('click', load);
+
+  // ---------- Cuenta regresiva hasta la proxima corrida del cron (cada hora en punto) ----------
+  function updateCountdown(){
+    var now = new Date();
+    var next = new Date(now);
+    next.setMinutes(0, 0, 0);
+    next.setHours(next.getHours() + 1);
+    var diff = Math.max(0, next.getTime() - now.getTime());
+    var mm = Math.floor(diff / 60000);
+    var ss = Math.floor((diff % 60000) / 1000);
+    document.getElementById('cronCountdown').textContent =
+      String(mm).padStart(2,'0') + ':' + String(ss).padStart(2,'0');
+  }
+  updateCountdown();
+  setInterval(updateCountdown, 1000);
+
+  // ---------- Sincronizar ahora (llama a ml-sync-ventas antes de refrescar) ----------
+  var SYNC_URL = 'https://kvewsxrfogosjwehookj.supabase.co/functions/v1/ml-sync-ventas';
+  document.getElementById('syncBtn').addEventListener('click', function(){
+    var btn = this;
+    btn.disabled = true;
+    btn.classList.add('spinning');
+    var originalText = btn.textContent;
+    btn.lastChild.textContent = ' Sincronizando…';
+
+    var controller = new AbortController();
+    var timeoutId = setTimeout(function(){ controller.abort(); }, 25000);
+
+    fetch(SYNC_URL, { signal: controller.signal, headers: { Authorization: authHeader() } })
+      .then(function(resp){
+        clearTimeout(timeoutId);
+        if(resp.status === 401){ showGate('La contraseña ya no es válida.'); throw new Error('__handled__'); }
+        if(!resp.ok) return resp.text().then(function(t){ throw new Error('HTTP ' + resp.status + ': ' + t.slice(0,200)); });
+        return resp.json();
+      })
+      .then(function(json){
+        if(!json.ok) throw new Error(json.error || 'error desconocido');
+        load();
+        loadBuyCalc();
+      })
+      .catch(function(e){
+        if(e && e.message === '__handled__') return;
+        renderError('sincronización manual falló — ' + (e && e.name === 'AbortError' ? 'se agotó el tiempo de espera.' : (e.message || String(e))));
+      })
+      .finally(function(){
+        btn.disabled = false;
+        btn.classList.remove('spinning');
+        btn.lastChild.textContent = ' Sincronizar';
+      });
+  });
 
   if(localStorage.getItem(STORAGE_KEY)){
     document.getElementById('gate').classList.add('hidden');
