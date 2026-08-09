@@ -144,6 +144,13 @@
   .buy-qty-big{font-size:15px; font-weight:700; color:var(--amber); white-space:nowrap;}
   .buy-row-sub{margin-top:4px; font-size:11.5px; color:var(--muted);}
   .mini-header-row{display:flex; justify-content:space-between; padding:10px 14px; font-size:10.5px; color:var(--muted); letter-spacing:.05em; text-transform:uppercase; border-bottom:1px solid var(--border);}
+  .advanced-details{margin-top:14px; border-top:1px solid var(--border); padding-top:10px;}
+  .advanced-details summary{
+    font-size:11.5px; color:var(--muted); cursor:pointer; list-style:none; user-select:none;
+  }
+  .advanced-details summary::-webkit-details-marker{display:none;}
+  .advanced-details summary::before{content:'▸ '; color:var(--amber);}
+  .advanced-details[open] summary::before{content:'▾ '; color:var(--amber);}
   .buy-qty{font-weight:700; color:var(--amber);}
   .gate input{
     width:100%; padding:12px 14px; border-radius:10px; border:1px solid var(--border);
@@ -329,41 +336,48 @@
     <div class="card" style="padding:16px; position:relative;">
       <button class="help-btn" type="button">?</button>
       <div class="help-popover">
-        Divide tu historial en 3 tramos (vos elegís dónde cortan) y calcula la velocidad de venta de <b>cada tramo por separado</b> — no un promedio único. Después combina los 3 usando el peso del preset elegido.<br><br>
-        <b>Ejemplo con "Moderado" (pesos 3/2/1):</b> si un SKU vendía 1 u./semana y en la última semana subió a 4 u./semana, el tramo reciente (peso 3) pesa el triple que el tramo viejo (peso 1) en el promedio final — el resultado se acerca más a "4" que a un promedio plano de todo el período.<br><br>
-        Cuanto más agresivo el preset, más manda lo que pasó últimamente y menos el historial viejo. "Plano" ignora esto y promedia todo por igual (como hacía la versión anterior de esta calculadora).
+        Mira cómo viene vendiendo cada producto últimamente (más que el histórico viejo) y te sugiere cuánto comprar para cubrir los días que elijas. "Reciente" reacciona rápido a cambios de tendencia; "Histórico completo" promedia todo por igual, sin darle más peso a lo último.
       </div>
+
       <div class="calc-row">
-        <div class="calc-field">
-          <label>Reciente (tramo 1, días)</label>
-          <input type="number" id="calcCorte1" value="7" min="1" />
-        </div>
-        <div class="calc-field">
-          <label>Corte tramo 2 (días)</label>
-          <input type="number" id="calcCorte2" value="30" min="2" />
-        </div>
-        <div class="calc-field">
-          <label>Historial total (días)</label>
-          <input type="number" id="calcLookback" value="90" min="3" />
-        </div>
-      </div>
-      <div class="presets" id="weightPresets" style="margin-bottom:0">
-        <button class="preset" data-preset="plano">Plano</button>
-        <button class="preset" data-preset="moderado">Moderado</button>
-        <button class="preset" data-preset="agresivo">Agresivo</button>
-        <button class="preset" data-preset="muy_agresivo">Muy agresivo</button>
-      </div>
-      <div class="calc-row" style="margin-top:14px">
-        <div class="calc-field">
-          <label>Filtrar por SKU (vacío = todos)</label>
-          <input type="text" id="calcSkuFilter" placeholder="Ej: 238" />
-        </div>
-        <div class="calc-field">
-          <label>Días de cobertura a comprar</label>
+        <div class="calc-field" style="flex:1.3">
+          <label>¿Para cuántos días querés stock?</label>
           <input type="number" id="calcCoverage" value="15" min="1" />
         </div>
+        <div class="calc-field">
+          <label>Filtrar por SKU (opcional)</label>
+          <input type="text" id="calcSkuFilter" placeholder="Ej: 238" />
+        </div>
       </div>
-      <div class="kpi-sub" id="calcStatus">Calculando…</div>
+
+      <div class="calc-field" style="margin-top:4px;">
+        <label>¿Qué tanto priorizar lo reciente?</label>
+        <div class="presets" id="weightPresets" style="margin-bottom:0">
+          <button class="preset" data-preset="agresivo">Reciente</button>
+          <button class="preset" data-preset="moderado">Equilibrado</button>
+          <button class="preset" data-preset="plano">Histórico completo</button>
+        </div>
+      </div>
+
+      <details class="advanced-details">
+        <summary>Configuración avanzada</summary>
+        <div class="calc-row" style="margin-top:12px">
+          <div class="calc-field">
+            <label>Ventana "reciente" (días)</label>
+            <input type="number" id="calcCorte1" value="7" min="1" />
+          </div>
+          <div class="calc-field">
+            <label>Corte del tramo medio (días)</label>
+            <input type="number" id="calcCorte2" value="30" min="2" />
+          </div>
+          <div class="calc-field">
+            <label>Historial total a mirar (días)</label>
+            <input type="number" id="calcLookback" value="90" min="3" />
+          </div>
+        </div>
+      </details>
+
+      <div class="kpi-sub" id="calcStatus" style="margin-top:12px">Calculando…</div>
     </div>
     <div class="card">
       <div class="mini-header-row"><span>SKU</span><span>Unidades a comprar</span></div>
@@ -746,7 +760,7 @@
 
     var statusEl = document.getElementById('calcStatus');
     var tbody = document.getElementById('buyTableBody');
-    statusEl.textContent = 'Calculando (tramos: ' + corte1 + ' / ' + corte2 + ' / ' + lookback + ' días)…';
+    statusEl.textContent = 'Calculando…';
     tbody.innerHTML = '<div class="empty">Cargando…</div>';
 
     var now = new Date();
@@ -788,7 +802,18 @@
         var weightSum = tramos.reduce(function(s,t){ return s + t.weight; }, 0) || 1;
         var velPonderada = tramos.reduce(function(s,t,idx){ return s + t.weight * velTramos[idx]; }, 0) / weightSum;
         var toBuy = Math.ceil(velPonderada * coverage);
-        return { sku: sku, vel: velPonderada, toBuy: toBuy };
+
+        // tendencia: compara el tramo reciente contra el tramo mas viejo
+        var velReciente = velTramos[0], velVieja = velTramos[2];
+        var tendencia = 'estable';
+        if(velVieja === 0 && velReciente > 0) tendencia = 'subiendo';
+        else if(velVieja > 0){
+          var cambio = (velReciente - velVieja) / velVieja;
+          if(cambio > 0.2) tendencia = 'subiendo';
+          else if(cambio < -0.2) tendencia = 'bajando';
+        }
+
+        return { sku: sku, vel: velPonderada, toBuy: toBuy, tendencia: tendencia };
       }).filter(function(r){ return r.toBuy > 0; });
 
       var skuFilter = (document.getElementById('calcSkuFilter').value || '').trim().toLowerCase();
@@ -797,8 +822,8 @@
       }
       rows.sort(function(a,b){ return b.toBuy - a.toBuy; });
 
-      statusEl.textContent = 'Tramos: últimos ' + corte1 + 'd (peso ' + weights[0] + ') · ' +
-        (corte2-corte1) + 'd previos (peso ' + weights[1] + ') · ' + (lookback-corte2) + 'd previos (peso ' + weights[2] + ') → cobertura ' + coverage + ' días.';
+      var presetNombre = { plano: 'histórico completo', moderado: 'equilibrado', agresivo: 'reciente', muy_agresivo: 'reciente' }[activeWeightPreset] || 'equilibrado';
+      statusEl.textContent = 'Comprando para cubrir ' + coverage + ' días, mirando el ritmo "' + presetNombre + '" de venta.';
 
       if(rows.length === 0){
         tbody.innerHTML = skuFilter
@@ -807,12 +832,18 @@
         return;
       }
       tbody.innerHTML = rows.map(function(r){
+        var porSemana = (r.vel * 7).toFixed(1);
+        var tendTxt, tendColor, tendArrow;
+        if(r.tendencia === 'subiendo'){ tendTxt = 'subiendo'; tendColor = 'var(--green)'; tendArrow = '↑'; }
+        else if(r.tendencia === 'bajando'){ tendTxt = 'bajando'; tendColor = 'var(--red)'; tendArrow = '↓'; }
+        else { tendTxt = 'estable'; tendColor = 'var(--muted)'; tendArrow = '→'; }
+
         return '<div class="buy-row">' +
           '<div class="buy-row-top">' +
             '<div class="mono buy-sku">' + r.sku + '</div>' +
             '<div class="mono buy-qty-big">' + r.toBuy + ' u.</div>' +
           '</div>' +
-          '<div class="buy-row-sub">velocidad ponderada: ' + r.vel.toFixed(2) + ' u./día</div>' +
+          '<div class="buy-row-sub">vendiendo ~' + porSemana + ' u./semana · <span style="color:' + tendColor + '">' + tendArrow + ' ' + tendTxt + '</span></div>' +
         '</div>';
       }).join('');
     }).catch(function(e){
