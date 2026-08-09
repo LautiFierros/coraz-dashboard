@@ -322,6 +322,48 @@
 
     <div id="rentabilidadBox"></div>
 
+    <div class="section-label" style="margin-top:24px">Flujo de caja</div>
+    <div class="kpi-grid">
+      <div class="kpi-card">
+        <button class="help-btn" type="button">?</button>
+        <div class="help-popover">
+          Todo lo que entró (ventas) menos todo lo que salió (pagos hechos: proveedores, impuestos, sueldos, financiero, logística — todo lo cargado en el maestro). Es la ganancia real del negocio en el período, no solo el margen por producto.
+        </div>
+        <div class="kpi-label">GANANCIA NETA REAL</div>
+        <div class="kpi-value mono" id="kpiGananciaNeta">—</div>
+        <div class="kpi-sub" id="kpiGananciaNetaSub">—</div>
+      </div>
+      <div class="kpi-card">
+        <button class="help-btn" type="button">?</button>
+        <div class="help-popover">
+          Qué porcentaje de tus egresos del período se concentra en los 3 destinos de pago más grandes (proveedores, impuestos, financiero, etc.). Un número alto significa que tu salida de caja depende de pocos compromisos grandes.
+        </div>
+        <div class="kpi-label">CONCENTRACIÓN DE GASTO</div>
+        <div class="kpi-value mono" id="kpiConcentracionGasto">—</div>
+        <div class="kpi-sub">top 3 destinos de pago</div>
+      </div>
+    </div>
+
+    <div id="vencimientosBox"></div>
+
+    <div class="section-label">Egresos por categoría</div>
+    <div class="card" style="position:relative;">
+      <button class="help-btn" type="button">?</button>
+      <div class="help-popover">
+        En qué se fue la plata este período, agrupado por categoría del maestro (Proveedores de productos, Impuestos, RRHH, Logística, Financiero, etc.).
+      </div>
+      <div class="bars" id="categoriaBars"><div class="empty">Cargando…</div></div>
+    </div>
+
+    <div class="section-label">Ingresos vs. egresos por mes</div>
+    <div class="card" style="position:relative;">
+      <button class="help-btn" type="button">?</button>
+      <div class="help-popover">
+        Comparación mes a mes de lo que entró (ventas) contra lo que salió (pagos). El número final es lo que ganaste o perdiste ese mes en caja.
+      </div>
+      <div id="flujoCajaBars"><div class="empty">Cargando…</div></div>
+    </div>
+
     <div class="section-label">Meta de facturación mensual</div>
     <div class="card" style="padding:14px 16px; position:relative;">
       <button class="help-btn" type="button">?</button>
@@ -413,6 +455,7 @@
 <script>
 (function(){
   var FN_BASE = 'https://kvewsxrfogosjwehookj.supabase.co/functions/v1/dashboard-ventas';
+  var PAGOS_BASE = 'https://kvewsxrfogosjwehookj.supabase.co/functions/v1/dashboard-pagos';
   var AUTH_USER = 'lauti';
   var STORAGE_KEY = 'coraz_dash_pw';
   var PRESET_KEY = 'coraz_dash_preset';
@@ -961,6 +1004,85 @@
   document.getElementById('calcCoverage').addEventListener('input', scheduleBuyCalc);
   document.getElementById('calcSkuFilter').addEventListener('input', scheduleBuyCalc);
 
+  function loadPagos(from, to){
+    fetch(PAGOS_BASE + '?from=' + from + '&to=' + to, { cache: 'no-store', headers: { Authorization: authHeader() } })
+      .then(function(resp){
+        if(!resp.ok) return resp.text().then(function(t){ throw new Error('HTTP ' + resp.status + ': ' + t.slice(0,150)); });
+        return resp.json();
+      })
+      .then(function(json){
+        if(json.error) throw new Error(json.error);
+        renderPagos(json);
+      })
+      .catch(function(e){
+        document.getElementById('kpiGananciaNeta').textContent = 'error';
+        document.getElementById('kpiGananciaNetaSub').textContent = (e.message || String(e));
+      });
+  }
+
+  function renderPagos(data){
+    var neta = data.ganancia_neta || 0;
+    var el = document.getElementById('kpiGananciaNeta');
+    el.textContent = fmtARS(neta);
+    el.style.color = neta < 0 ? 'var(--red)' : 'var(--green)';
+    document.getElementById('kpiGananciaNetaSub').textContent =
+      'ingresos ' + fmtARS(data.ingresos_total) + ' − egresos ' + fmtARS(data.egresos_total);
+
+    document.getElementById('kpiConcentracionGasto').textContent = (data.concentracion_top3_pct||0).toFixed(0) + '%';
+
+    // vencimientos proximos
+    var vencBox = document.getElementById('vencimientosBox');
+    var venc = data.vencimientos_proximos || [];
+    if(venc.length === 0){
+      vencBox.innerHTML = '';
+    } else {
+      vencBox.innerHTML = '<div class="alert" style="border-color:var(--amber);">' +
+        '<div class="alert-title">📅 VENCIMIENTOS PRÓXIMOS (30 días)</div>' +
+        venc.map(function(v){
+          var urgente = v.dias_restantes <= 3;
+          var color = urgente ? 'var(--red)' : 'var(--text)';
+          var diasTxt = v.dias_restantes === 0 ? 'hoy' : (v.dias_restantes === 1 ? 'mañana' : 'en ' + v.dias_restantes + ' días');
+          return '<div class="alert-row"><span style="color:' + color + '">' + v.descripcion + '</span><span>' + fmtARS(v.importe) + ' · ' + diasTxt + '</span></div>';
+        }).join('') +
+      '</div>';
+    }
+
+    // desglose por categoria
+    var catEl = document.getElementById('categoriaBars');
+    var cats = (data.desglose_categoria || []).filter(function(c){ return c.categoria !== '0'; });
+    if(cats.length === 0){
+      catEl.innerHTML = '<div class="empty">Sin egresos categorizados en este período.</div>';
+    } else {
+      var maxCat = Math.max.apply(null, cats.map(function(c){ return c.importe; })) || 1;
+      catEl.innerHTML = cats.map(function(c, i){
+        var pct = Math.max(4, Math.round((c.importe/maxCat)*100));
+        return '<div class="bar-row">' +
+          '<div style="font-size:11px;width:70px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">' + c.categoria + '</div>' +
+          '<div class="bar-track"><div class="bar-fill' + (i===0?' top':'') + '" style="width:' + pct + '%"></div></div>' +
+          '<div class="mono">' + fmtARS(c.importe) + '</div>' +
+        '</div>';
+      }).join('');
+    }
+
+    // flujo de caja mensual
+    var flujoEl = document.getElementById('flujoCajaBars');
+    var flujo = data.flujo_caja_mensual || [];
+    if(flujo.length === 0){
+      flujoEl.innerHTML = '<div class="empty">Todavía no hay suficiente histórico.</div>';
+    } else {
+      flujoEl.innerHTML = flujo.map(function(m){
+        var color = m.neto >= 0 ? 'var(--green)' : 'var(--red)';
+        return '<div class="detail-row">' +
+          '<div class="detail-row-top">' +
+            '<div class="mono detail-sku">' + m.mes + '</div>' +
+            '<div class="mono detail-facturado" style="color:' + color + '">' + fmtARS(m.neto) + '</div>' +
+          '</div>' +
+          '<div class="detail-row-sub">ingresos ' + fmtARS(m.ingresos) + ' · egresos ' + fmtARS(m.egresos) + '</div>' +
+        '</div>';
+      }).join('');
+    }
+  }
+
   function load(){
     renderLoading(true);
     renderError(null);
@@ -987,6 +1109,7 @@
         window.__lastData = json;
         render(json);
         populateMonthPicker(json.monthly_trend);
+        loadPagos(r.from, r.to);
         if(customRange && customRange.month){
           var mp = document.getElementById('monthPicker');
           mp.value = customRange.month;
