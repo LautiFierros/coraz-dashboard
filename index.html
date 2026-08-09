@@ -292,10 +292,35 @@
         <div class="kpi-sub">sobre precio bruto</div>
       </div>
       <div class="kpi-card" style="grid-column: 1 / -1;">
+        <button class="help-btn" type="button">?</button>
+        <div class="help-popover">
+          Cuánto te queda de verdad después de descontar el costo de mercadería (no solo la comisión de ML). Solo cuenta las ventas de SKUs que ya tienen costo cargado desde el maestro. Debajo se muestra la cobertura de dos formas: por cantidad de SKUs y por peso real en tu facturación (esta última importa más — pocos SKUs sin costo pero de alta venta pesan más que muchos SKUs chicos sin costo).
+        </div>
+        <div class="kpi-label">MARGEN REAL</div>
         <div class="kpi-value mono" id="kpiMargen">—</div>
         <div class="kpi-sub" id="kpiMargenSub">—</div>
       </div>
+      <div class="kpi-card">
+        <button class="help-btn" type="button">?</button>
+        <div class="help-popover">
+          Margen promedio en pesos por cada venta (no por unidad) — solo contando ventas de SKUs con costo cargado. Complementa al "ticket promedio" de arriba, que mide facturación pero no lo que realmente te queda.
+        </div>
+        <div class="kpi-label">MARGEN PROM. POR VENTA</div>
+        <div class="kpi-value mono" id="kpiMargenProm">—</div>
+        <div class="kpi-sub">por venta, con costo conocido</div>
+      </div>
+      <div class="kpi-card">
+        <button class="help-btn" type="button">?</button>
+        <div class="help-popover">
+          De tu facturación total, qué porcentaje corresponde a SKUs con costo cargado en el maestro — ponderado por plata real, no por cantidad de productos. Si este número es bajo, el "Margen real" de arriba está calculado sobre una porción chica de tu negocio.
+        </div>
+        <div class="kpi-label">COBERTURA DE COSTO</div>
+        <div class="kpi-value mono" id="kpiCobertura">—</div>
+        <div class="kpi-sub">de la facturación total</div>
+      </div>
     </div>
+
+    <div id="rentabilidadBox"></div>
 
     <div class="section-label">Meta de facturación mensual</div>
     <div class="card" style="padding:14px 16px; position:relative;">
@@ -625,7 +650,18 @@
     margenEl.style.color = (margenPct !== null && margenPct < 15) ? 'var(--red)' : 'var(--text)';
     var cobertura = data.cobertura_costo_pct || 0;
     document.getElementById('kpiMargenSub').textContent =
-      fmtARS(data.margen_real_total) + ' · cubre ' + cobertura.toFixed(0) + '% de los SKUs vendidos';
+      fmtARS(data.margen_real_total) + ' · ' + cobertura.toFixed(0) + '% de los SKUs tienen costo cargado';
+
+    var margenProm = data.margen_promedio_por_venta;
+    document.getElementById('kpiMargenProm').textContent =
+      (margenProm === null || margenProm === undefined) ? 'sin datos' : fmtARS(margenProm);
+
+    var coberturaFact = data.cobertura_costo_facturacion_pct || 0;
+    var coberturaEl = document.getElementById('kpiCobertura');
+    coberturaEl.textContent = coberturaFact.toFixed(0) + '%';
+    coberturaEl.style.color = coberturaFact < 50 ? 'var(--red)' : 'var(--text)';
+
+    renderRentabilidadBox(data);
   }
 
   function renderPayments(data){
@@ -668,6 +704,36 @@
     }).join('');
   }
 
+  function renderRentabilidadBox(data){
+    var el = document.getElementById('rentabilidadBox');
+    var parts = [];
+
+    var top = data.sku_mas_rentable;
+    if(top){
+      parts.push(
+        '<div class="alert" style="border-color:var(--green);">' +
+          '<div class="alert-title" style="color:var(--green);">★ SKU MÁS RENTABLE (no el que más factura)</div>' +
+          '<div class="alert-row"><span>' + top.sku + '</span><span>margen: ' + fmtARS(top.margen) + ' (' + (top.margen_pct||0).toFixed(0) + '%) · facturó ' + fmtARS(top.gross) + '</span></div>' +
+        '</div>'
+      );
+    }
+
+    var criticos = data.margen_critico || [];
+    if(criticos.length > 0){
+      parts.push(
+        '<div class="alert">' +
+          '<div class="alert-title">⚠ MARGEN CRÍTICO O NEGATIVO</div>' +
+          criticos.map(function(c){
+            var color = c.margen_pct < 0 ? 'var(--red)' : 'var(--muted)';
+            return '<div class="alert-row"><span>' + c.sku + '</span><span style="color:' + color + '">' + c.margen_pct.toFixed(0) + '% (' + fmtARS(c.margen) + ')</span></div>';
+          }).join('') +
+        '</div>'
+      );
+    }
+
+    el.innerHTML = parts.join('');
+  }
+
   function renderMonthly(data){
     var el = document.getElementById('monthlyBars');
     var mt = data.monthly_trend || [];
@@ -678,11 +744,16 @@
     var max = Math.max.apply(null, mt.map(function(m){ return m.gross; })) || 1;
     el.innerHTML = mt.map(function(m){
       var pct = Math.max(4, Math.round((m.gross/max)*100));
-      return '<div class="bar-row">' +
+      var margenTxt = '';
+      if(m.margen_pct !== null && m.margen_pct !== undefined){
+        var mColor = m.margen_pct < 15 ? 'var(--red)' : 'var(--green)';
+        margenTxt = '<div style="font-size:10.5px;color:' + mColor + ';margin:-4px 0 8px 0;padding-left:78px;">margen: ' + m.margen_pct.toFixed(0) + '%</div>';
+      }
+      return '<div class="bar-row" style="margin-bottom:2px;">' +
         '<div class="mono">' + m.month + '</div>' +
         '<div class="bar-track"><div class="bar-fill' + (m.gross===max?' top':'') + '" style="width:' + pct + '%"></div></div>' +
         '<div class="mono">' + fmtARS(m.gross) + '</div>' +
-      '</div>';
+      '</div>' + margenTxt;
     }).join('');
   }
 
