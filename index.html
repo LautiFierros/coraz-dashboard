@@ -384,8 +384,8 @@
   function rangeForMonth(monthStr){
     var parts = monthStr.split('-');
     var y = parseInt(parts[0],10), m = parseInt(parts[1],10) - 1;
-    var first = new Date(Date.UTC(y, m, 1));
-    var lastOfMonth = new Date(Date.UTC(y, m + 1, 0));
+    var first = new Date(y, m, 1);
+    var lastOfMonth = new Date(y, m + 1, 0);
     var today = new Date();
     var last = lastOfMonth < today ? lastOfMonth : today;
     return { from: isoDate(first), to: isoDate(last) };
@@ -405,7 +405,12 @@
     if(!current && customRange) sel.value = customRange.month;
   }
 
-  function isoDate(d){ return d.toISOString().slice(0,10); }
+  function isoDate(d){
+    var y = d.getFullYear();
+    var m = String(d.getMonth()+1).padStart(2,'0');
+    var day = String(d.getDate()).padStart(2,'0');
+    return y + '-' + m + '-' + day;
+  }
 
   function rangeFor(p){
     var now = new Date();
