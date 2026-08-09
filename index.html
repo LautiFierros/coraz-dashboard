@@ -345,7 +345,7 @@
           <input type="number" id="calcCoverage" value="15" min="1" />
         </div>
         <div class="calc-field">
-          <label>Filtrar por SKU (opcional)</label>
+          <label>SKU (obligatorio)</label>
           <input type="text" id="calcSkuFilter" placeholder="Ej: 238" />
         </div>
       </div>
@@ -743,6 +743,16 @@
   }
 
   function loadBuyCalc(){
+    var statusEl = document.getElementById('calcStatus');
+    var tbody = document.getElementById('buyTableBody');
+
+    var skuFilterVal = (document.getElementById('calcSkuFilter').value || '').trim();
+    if(!skuFilterVal){
+      statusEl.textContent = 'Ingresá un SKU arriba para ver la sugerencia de compra.';
+      tbody.innerHTML = '<div class="empty">Escribí un SKU para calcular.</div>';
+      return;
+    }
+
     var corte1 = Math.max(1, parseInt(document.getElementById('calcCorte1').value, 10) || 7);
     var corte2 = Math.max(corte1 + 1, parseInt(document.getElementById('calcCorte2').value, 10) || 30);
     var lookback = Math.max(corte2 + 1, parseInt(document.getElementById('calcLookback').value, 10) || 90);
@@ -756,10 +766,8 @@
     localStorage.setItem(CORTE2_KEY, corte2);
     localStorage.setItem(LOOKBACK_KEY, lookback);
     localStorage.setItem(COVERAGE_KEY, coverage);
-    localStorage.setItem(SKU_FILTER_KEY, document.getElementById('calcSkuFilter').value || '');
+    localStorage.setItem(SKU_FILTER_KEY, skuFilterVal);
 
-    var statusEl = document.getElementById('calcStatus');
-    var tbody = document.getElementById('buyTableBody');
     statusEl.textContent = 'Calculando…';
     tbody.innerHTML = '<div class="empty">Cargando…</div>';
 
