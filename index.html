@@ -1062,13 +1062,28 @@
 
     document.getElementById('kpiConcentracionGasto').textContent = (data.concentracion_top3_pct||0).toFixed(0) + '%';
 
-    // vencimientos proximos
+    // vencidos + proximos
     var vencBox = document.getElementById('vencimientosBox');
+    var vencidos = data.vencidos || [];
     var venc = data.vencimientos_proximos || [];
+    var html = '';
+
+    if(vencidos.length > 0){
+      html += '<div class="alert" style="border-color:var(--red);">' +
+        '<div class="alert-title" style="color:var(--red);">🔴 PAGOS VENCIDOS (' + fmtARS(data.total_vencido) + ')</div>' +
+        vencidos.map(function(v){
+          var diasVencido = Math.abs(v.dias_restantes);
+          var diasTxt = diasVencido === 1 ? 'venció hace 1 día' : 'venció hace ' + diasVencido + ' días';
+          return '<div class="alert-row"><span style="color:var(--red)">' + v.descripcion + '</span><span>' + fmtARS(v.importe) + ' · ' + diasTxt + '</span></div>';
+        }).join('') +
+      '</div>';
+    }
+
     if(venc.length === 0){
-      vencBox.innerHTML = '';
+      if(vencidos.length === 0) vencBox.innerHTML = '';
+      else vencBox.innerHTML = html;
     } else {
-      vencBox.innerHTML = '<div class="alert" style="border-color:var(--amber);">' +
+      html += '<div class="alert" style="border-color:var(--amber);">' +
         '<div class="alert-title">📅 VENCIMIENTOS PRÓXIMOS (30 días)</div>' +
         venc.map(function(v){
           var urgente = v.dias_restantes <= 3;
@@ -1077,6 +1092,7 @@
           return '<div class="alert-row"><span style="color:' + color + '">' + v.descripcion + '</span><span>' + fmtARS(v.importe) + ' · ' + diasTxt + '</span></div>';
         }).join('') +
       '</div>';
+      vencBox.innerHTML = html;
     }
 
     // desglose por categoria
