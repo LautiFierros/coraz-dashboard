@@ -137,9 +137,12 @@
     width:100%; padding:10px 12px; border-radius:10px; border:1px solid var(--border);
     background:#0F0D09; color:var(--text); font-family:'IBM Plex Mono',monospace; font-size:15px; font-weight:600;
   }
-  .buy-table-head{display:grid; grid-template-columns:1fr auto auto; padding:10px 14px; font-size:11px; color:var(--muted); letter-spacing:.06em; border-bottom:1px solid var(--border);}
-  .buy-row{display:grid; grid-template-columns:1fr auto auto; padding:11px 14px; font-size:13px; border-bottom:1px solid var(--border); align-items:center;}
+  .buy-row{padding:11px 14px; border-bottom:1px solid var(--border);}
   .buy-row:last-child{border-bottom:none;}
+  .buy-row-top{display:flex; justify-content:space-between; align-items:baseline; gap:10px;}
+  .buy-sku{font-size:13.5px; font-weight:600; color:var(--text);}
+  .buy-qty-big{font-size:15px; font-weight:700; color:var(--amber); white-space:nowrap;}
+  .buy-row-sub{margin-top:4px; font-size:11.5px; color:var(--muted);}
   .buy-qty{font-weight:700; color:var(--amber);}
   .gate input{
     width:100%; padding:12px 14px; border-radius:10px; border:1px solid var(--border);
@@ -359,7 +362,6 @@
       <div class="kpi-sub" id="calcStatus">Calculando…</div>
     </div>
     <div class="card">
-      <div class="buy-table-head"><div>SKU</div><div style="text-align:right">VEL./DÍA POND.</div><div style="text-align:right">COMPRAR</div></div>
       <div id="buyTableBody"><div class="empty">Cargando…</div></div>
     </div>
   </div>
@@ -801,9 +803,11 @@
       }
       tbody.innerHTML = rows.map(function(r){
         return '<div class="buy-row">' +
-          '<div class="mono">' + r.sku + '</div>' +
-          '<div class="mono" style="text-align:right;color:var(--muted)">' + r.vel.toFixed(2) + '</div>' +
-          '<div class="mono buy-qty" style="text-align:right">' + r.toBuy + ' u.</div>' +
+          '<div class="buy-row-top">' +
+            '<div class="mono buy-sku">' + r.sku + '</div>' +
+            '<div class="mono buy-qty-big">' + r.toBuy + ' u.</div>' +
+          '</div>' +
+          '<div class="buy-row-sub">velocidad ponderada: ' + r.vel.toFixed(2) + ' u./día</div>' +
         '</div>';
       }).join('');
     }).catch(function(e){
