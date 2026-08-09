@@ -132,7 +132,7 @@
   .goal-bar-fill{height:100%; background:var(--amber); border-radius:6px;}
   .calc-row{display:flex; gap:10px; margin-bottom:14px;}
   .calc-field{flex:1;}
-  .calc-field label{font-size:10.5px; color:var(--muted); display:block; margin-bottom:5px;}
+  .calc-field label{font-size:10.5px; color:var(--muted); display:block; margin-bottom:5px; min-height:28px; line-height:1.35;}
   .calc-field input{
     width:100%; padding:10px 12px; border-radius:10px; border:1px solid var(--border);
     background:#0F0D09; color:var(--text); font-family:'IBM Plex Mono',monospace; font-size:15px; font-weight:600;
@@ -329,19 +329,21 @@
     <div class="card" style="padding:16px; position:relative;">
       <button class="help-btn" type="button">?</button>
       <div class="help-popover">
-        Estima cuánto comprar de cada SKU según tu ritmo de venta reciente. Divide el historial en 3 tramos (vos definís dónde cortan) y les asigna un peso a cada uno — así podés darle más importancia a la tendencia reciente que a ventas viejas. El resultado son las unidades sugeridas para cubrir los días de cobertura que elijas.
+        Divide tu historial en 3 tramos (vos elegís dónde cortan) y calcula la velocidad de venta de <b>cada tramo por separado</b> — no un promedio único. Después combina los 3 usando el peso del preset elegido.<br><br>
+        <b>Ejemplo con "Moderado" (pesos 3/2/1):</b> si un SKU vendía 1 u./semana y en la última semana subió a 4 u./semana, el tramo reciente (peso 3) pesa el triple que el tramo viejo (peso 1) en el promedio final — el resultado se acerca más a "4" que a un promedio plano de todo el período.<br><br>
+        Cuanto más agresivo el preset, más manda lo que pasó últimamente y menos el historial viejo. "Plano" ignora esto y promedia todo por igual (como hacía la versión anterior de esta calculadora).
       </div>
       <div class="calc-row">
         <div class="calc-field">
-          <label>Tramo 1 — reciente (días)</label>
+          <label>Reciente (tramo 1, días)</label>
           <input type="number" id="calcCorte1" value="7" min="1" />
         </div>
         <div class="calc-field">
-          <label>Tramo 2 — corte (días)</label>
+          <label>Corte tramo 2 (días)</label>
           <input type="number" id="calcCorte2" value="30" min="2" />
         </div>
         <div class="calc-field">
-          <label>Tramo 3 — total historial (días)</label>
+          <label>Historial total (días)</label>
           <input type="number" id="calcLookback" value="90" min="3" />
         </div>
       </div>
