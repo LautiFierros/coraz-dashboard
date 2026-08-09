@@ -833,6 +833,7 @@
       }
       tbody.innerHTML = rows.map(function(r){
         var porSemana = (r.vel * 7).toFixed(1);
+        var porDia = r.vel.toFixed(2);
         var tendTxt, tendColor, tendArrow;
         if(r.tendencia === 'subiendo'){ tendTxt = 'subiendo'; tendColor = 'var(--green)'; tendArrow = '↑'; }
         else if(r.tendencia === 'bajando'){ tendTxt = 'bajando'; tendColor = 'var(--red)'; tendArrow = '↓'; }
@@ -843,7 +844,7 @@
             '<div class="mono buy-sku">' + r.sku + '</div>' +
             '<div class="mono buy-qty-big">' + r.toBuy + ' u.</div>' +
           '</div>' +
-          '<div class="buy-row-sub">vendiendo ~' + porSemana + ' u./semana · <span style="color:' + tendColor + '">' + tendArrow + ' ' + tendTxt + '</span></div>' +
+          '<div class="buy-row-sub">vendiendo ~' + porSemana + ' u./semana (' + porDia + ' u./día) · <span style="color:' + tendColor + '">' + tendArrow + ' ' + tendTxt + '</span></div>' +
         '</div>';
       }).join('');
     }).catch(function(e){
