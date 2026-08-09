@@ -94,8 +94,8 @@
   .bar-track{background:#0F0D09; border-radius:4px; height:22px; overflow:hidden;}
   .bar-fill{height:100%; border-radius:4px; background:var(--amberDim); display:flex; align-items:center;}
   .bar-fill.top{background:var(--amber);}
-  .table-head{display:grid; grid-template-columns:1fr auto auto auto; padding:10px 14px; font-size:11px; color:var(--muted); letter-spacing:.06em; border-bottom:1px solid var(--border);}
-  .table-row{display:grid; grid-template-columns:1fr auto auto auto; padding:11px 14px; font-size:13px; border-bottom:1px solid var(--border); align-items:center; gap:6px;}
+  .table-head{display:grid; grid-template-columns:1fr auto auto auto auto; padding:10px 14px; font-size:11px; color:var(--muted); letter-spacing:.06em; border-bottom:1px solid var(--border);}
+  .table-row{display:grid; grid-template-columns:1fr auto auto auto auto; padding:11px 14px; font-size:13px; border-bottom:1px solid var(--border); align-items:center; gap:6px;}
   .table-row:last-child{border-bottom:none;}
   .empty{padding:28px 16px; text-align:center; color:var(--muted); font-size:13px;}
   .footer-note{margin-top:18px; font-size:11px; color:var(--muted); text-align:center;}
@@ -232,11 +232,11 @@
 
     <div class="section-label">Detalle (vs. período anterior)</div>
     <div class="card">
-      <div class="table-head"><div>SKU</div><div style="text-align:right">UNID.</div><div style="text-align:right">FACTURADO</div><div style="text-align:right">VAR.</div></div>
+      <div class="table-head"><div>SKU</div><div style="text-align:right">UNID.</div><div style="text-align:right">FACTURADO</div><div style="text-align:right">MARGEN</div><div style="text-align:right">VAR.</div></div>
       <div id="tableBody"><div class="empty">Cargando…</div></div>
     </div>
 
-    <div class="footer-note" id="footerNote">Datos de Mercado Libre, sincronizados automáticamente. Margen real (con costo) — próximamente.</div>
+    <div class="footer-note" id="footerNote">Datos de Mercado Libre, sincronizados automáticamente. Costos sincronizados desde el maestro.</div>
 
     <div class="section-label" style="margin-top:24px">Salud del negocio</div>
     <div class="kpi-grid">
@@ -275,6 +275,10 @@
         <div class="kpi-label">COMISIÓN EFECTIVA ML</div>
         <div class="kpi-value mono" id="kpiComision">—</div>
         <div class="kpi-sub">sobre precio bruto</div>
+      </div>
+      <div class="kpi-card" style="grid-column: 1 / -1;">
+        <div class="kpi-value mono" id="kpiMargen">—</div>
+        <div class="kpi-sub" id="kpiMargenSub">—</div>
       </div>
     </div>
 
@@ -523,10 +527,15 @@
         var d = row.delta_pct;
         var cls = deltaClass(d);
         var color = cls==='up' ? 'var(--green)' : cls==='down' ? 'var(--red)' : 'var(--muted)';
+        var margenTxt = row.tiene_costo
+          ? fmtARS(row.margen) + ' (' + (row.margen_pct||0).toFixed(0) + '%)'
+          : '<span style="color:var(--muted)">s/costo</span>';
+        var margenColor = row.tiene_costo ? (row.margen_pct < 15 ? 'var(--red)' : 'var(--text)') : 'var(--muted)';
         return '<div class="table-row">' +
           '<div class="mono">' + row.sku + '</div>' +
           '<div class="mono" style="text-align:right;color:var(--muted)">' + fmtInt(row.units) + '</div>' +
           '<div class="mono" style="text-align:right;font-weight:600">' + fmtARS(row.gross) + '</div>' +
+          '<div class="mono" style="text-align:right;font-size:11px;color:' + margenColor + '">' + margenTxt + '</div>' +
           '<div class="mono" style="text-align:right;font-size:11px;color:' + color + '">' +
             (d === null || d === undefined ? '—' : deltaArrow(d) + ' ' + fmtPct(d)) +
           '</div>' +
@@ -571,6 +580,14 @@
 
     var com = data.comision_efectiva_pct;
     document.getElementById('kpiComision').textContent = (com === null || com === undefined) ? 'sin datos' : com.toFixed(1) + '%';
+
+    var margenPct = data.margen_real_pct;
+    var margenEl = document.getElementById('kpiMargen');
+    margenEl.textContent = (margenPct === null || margenPct === undefined) ? 'sin datos' : margenPct.toFixed(1) + '%';
+    margenEl.style.color = (margenPct !== null && margenPct < 15) ? 'var(--red)' : 'var(--text)';
+    var cobertura = data.cobertura_costo_pct || 0;
+    document.getElementById('kpiMargenSub').textContent =
+      fmtARS(data.margen_real_total) + ' · cubre ' + cobertura.toFixed(0) + '% de los SKUs vendidos';
   }
 
   function renderPayments(data){
