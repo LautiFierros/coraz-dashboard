@@ -94,9 +94,13 @@
   .bar-track{background:#0F0D09; border-radius:4px; height:22px; overflow:hidden;}
   .bar-fill{height:100%; border-radius:4px; background:var(--amberDim); display:flex; align-items:center;}
   .bar-fill.top{background:var(--amber);}
-  .table-head{display:grid; grid-template-columns:1fr auto auto auto auto; padding:10px 14px; font-size:11px; color:var(--muted); letter-spacing:.06em; border-bottom:1px solid var(--border);}
-  .table-row{display:grid; grid-template-columns:1fr auto auto auto auto; padding:11px 14px; font-size:13px; border-bottom:1px solid var(--border); align-items:center; gap:6px;}
-  .table-row:last-child{border-bottom:none;}
+  .detail-row{padding:11px 14px; border-bottom:1px solid var(--border);}
+  .detail-row:last-child{border-bottom:none;}
+  .detail-row-top{display:flex; justify-content:space-between; align-items:baseline; gap:10px;}
+  .detail-sku{font-size:13.5px; font-weight:600; color:var(--text);}
+  .detail-facturado{font-size:14.5px; font-weight:700; color:var(--text); white-space:nowrap;}
+  .detail-row-sub{display:flex; gap:5px; flex-wrap:wrap; margin-top:5px; font-size:11.5px; color:var(--muted); align-items:baseline;}
+  .detail-row-sub .dot{opacity:.4; margin:0 1px;}
   .empty{padding:28px 16px; text-align:center; color:var(--muted); font-size:13px;}
   .footer-note{margin-top:18px; font-size:11px; color:var(--muted); text-align:center;}
 
@@ -232,7 +236,6 @@
 
     <div class="section-label">Detalle (vs. período anterior)</div>
     <div class="card">
-      <div class="table-head"><div>SKU</div><div style="text-align:right">UNID.</div><div style="text-align:right">FACTURADO</div><div style="text-align:right">MARGEN</div><div style="text-align:right">VAR.</div></div>
       <div id="tableBody"><div class="empty">Cargando…</div></div>
     </div>
 
@@ -526,19 +529,33 @@
       tbody.innerHTML = bySku.map(function(row){
         var d = row.delta_pct;
         var cls = deltaClass(d);
-        var color = cls==='up' ? 'var(--green)' : cls==='down' ? 'var(--red)' : 'var(--muted)';
-        var margenTxt = row.tiene_costo
-          ? fmtARS(row.margen) + ' (' + (row.margen_pct||0).toFixed(0) + '%)'
-          : '<span style="color:var(--muted)">s/costo</span>';
-        var margenColor = row.tiene_costo ? (row.margen_pct < 15 ? 'var(--red)' : 'var(--text)') : 'var(--muted)';
-        return '<div class="table-row">' +
-          '<div class="mono">' + row.sku + '</div>' +
-          '<div class="mono" style="text-align:right;color:var(--muted)">' + fmtInt(row.units) + '</div>' +
-          '<div class="mono" style="text-align:right;font-weight:600">' + fmtARS(row.gross) + '</div>' +
-          '<div class="mono" style="text-align:right;font-size:11px;color:' + margenColor + '">' + margenTxt + '</div>' +
-          '<div class="mono" style="text-align:right;font-size:11px;color:' + color + '">' +
-            (d === null || d === undefined ? '—' : deltaArrow(d) + ' ' + fmtPct(d)) +
+        var varColor = cls==='up' ? 'var(--green)' : cls==='down' ? 'var(--red)' : 'var(--muted)';
+        var varTxt = (d === null || d === undefined) ? null : deltaArrow(d) + ' ' + fmtPct(d) + ' vs. ant.';
+
+        var margenTxt, margenColor;
+        if(row.tiene_costo){
+          margenColor = row.margen_pct < 15 ? 'var(--red)' : 'var(--green)';
+          margenTxt = 'margen ' + fmtARS(row.margen) + ' (' + (row.margen_pct||0).toFixed(0) + '%)';
+        } else {
+          margenColor = 'var(--muted)';
+          margenTxt = 'sin costo cargado';
+        }
+
+        var subParts = [fmtInt(row.units) + ' u.', margenTxt];
+        if(varTxt) subParts.push(varTxt);
+
+        var subHtml = subParts.map(function(part, i){
+          var color = i === 1 ? margenColor : (i === 2 ? varColor : 'var(--muted)');
+          var sep = i > 0 ? '<span class="dot">·</span>' : '';
+          return sep + '<span style="color:' + color + '">' + part + '</span>';
+        }).join('');
+
+        return '<div class="detail-row">' +
+          '<div class="detail-row-top">' +
+            '<div class="mono detail-sku">' + row.sku + '</div>' +
+            '<div class="mono detail-facturado">' + fmtARS(row.gross) + '</div>' +
           '</div>' +
+          '<div class="detail-row-sub">' + subHtml + '</div>' +
         '</div>';
       }).join('');
     }
