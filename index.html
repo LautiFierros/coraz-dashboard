@@ -103,6 +103,15 @@
   .detail-row-sub .dot{opacity:.4; margin:0 1px;}
   .empty{padding:28px 16px; text-align:center; color:var(--muted); font-size:13px;}
   .footer-note{margin-top:18px; font-size:11px; color:var(--muted); text-align:center;}
+  .tab-bar{display:flex; gap:4px; margin-bottom:18px; border-bottom:1px solid var(--border); overflow-x:auto;}
+  .tab-btn{
+    padding:10px 14px; border:none; background:transparent; color:var(--muted);
+    font-family:inherit; font-size:13px; font-weight:600; cursor:pointer; white-space:nowrap;
+    border-bottom:2px solid transparent; margin-bottom:-1px;
+  }
+  .tab-btn.active{color:var(--amber); border-bottom-color:var(--amber);}
+  .tab-panel{display:none;}
+  .tab-panel.active{display:block;}
 
   .kpi-grid{display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-bottom:14px;}
   .kpi-card{background:var(--card); border:1px solid var(--border); border-radius:14px; padding:14px; position:relative;}
@@ -218,6 +227,16 @@
     </div>
 
     <div id="errBox"></div>
+
+
+    <div class="tab-bar" id="tabBar">
+      <button class="tab-btn active" data-tab="ventas">Ventas</button>
+      <button class="tab-btn" data-tab="rentabilidad">Rentabilidad</button>
+      <button class="tab-btn" data-tab="caja">Caja</button>
+      <button class="tab-btn" data-tab="compras">Compras</button>
+    </div>
+
+    <div class="tab-panel active" data-tab-panel="ventas">
     <div id="stoppedBox"></div>
 
     <div class="hero">
@@ -253,6 +272,31 @@
 
     <div class="footer-note" id="footerNote">Datos de Mercado Libre, sincronizados automáticamente. Costos sincronizados desde el maestro.</div>
 
+
+    <div class="section-label">Medio de pago (período actual)</div>
+    <div class="card" id="paymentCard"><div class="empty">Cargando…</div></div>
+
+    <div class="section-label">Estacionalidad — últimos 90 días</div>
+    <div class="card" style="position:relative;">
+      <button class="help-btn" type="button">?</button>
+      <div class="help-popover">
+        Suma la facturación de los últimos 90 días agrupada por día de la semana (no por fecha puntual). Te muestra qué días tienden a vender más, para saber cuándo reforzar stock, envíos o publicidad.
+      </div>
+      <div class="bars" id="dowBars"><div class="empty">Cargando…</div></div>
+    </div>
+
+    <div class="section-label">Tendencia mensual</div>
+    <div class="card" style="position:relative;">
+      <button class="help-btn" type="button">?</button>
+      <div class="help-popover">
+        Facturación total por mes calendario, de los últimos 6 meses (sin contar ventas canceladas). Sirve para ver la curva real del negocio en el tiempo, más allá de comparar solo dos períodos puntuales.
+      </div>
+      <div class="bars" id="monthlyBars"><div class="empty">Cargando…</div></div>
+    </div>
+
+    </div>
+
+    <div class="tab-panel" data-tab-panel="rentabilidad">
     <div class="section-label" style="margin-top:24px">Salud del negocio</div>
     <div class="kpi-grid">
       <div class="kpi-card">
@@ -322,6 +366,9 @@
 
     <div id="rentabilidadBox"></div>
 
+    </div>
+
+    <div class="tab-panel" data-tab-panel="caja">
     <div class="section-label" style="margin-top:24px">Flujo de caja</div>
     <div class="kpi-grid">
       <div class="kpi-card">
@@ -364,6 +411,7 @@
       <div id="flujoCajaBars"><div class="empty">Cargando…</div></div>
     </div>
 
+
     <div class="section-label">Meta de facturación mensual</div>
     <div class="card" style="padding:14px 16px; position:relative;">
       <button class="help-btn" type="button">?</button>
@@ -378,27 +426,9 @@
       <div class="kpi-sub" id="goalSub" style="margin-top:6px">Cargá tu objetivo mensual para ver el % cumplido.</div>
     </div>
 
-    <div class="section-label">Medio de pago (período actual)</div>
-    <div class="card" id="paymentCard"><div class="empty">Cargando…</div></div>
-
-    <div class="section-label">Estacionalidad — últimos 90 días</div>
-    <div class="card" style="position:relative;">
-      <button class="help-btn" type="button">?</button>
-      <div class="help-popover">
-        Suma la facturación de los últimos 90 días agrupada por día de la semana (no por fecha puntual). Te muestra qué días tienden a vender más, para saber cuándo reforzar stock, envíos o publicidad.
-      </div>
-      <div class="bars" id="dowBars"><div class="empty">Cargando…</div></div>
     </div>
 
-    <div class="section-label">Tendencia mensual</div>
-    <div class="card" style="position:relative;">
-      <button class="help-btn" type="button">?</button>
-      <div class="help-popover">
-        Facturación total por mes calendario, de los últimos 6 meses (sin contar ventas canceladas). Sirve para ver la curva real del negocio en el tiempo, más allá de comparar solo dos períodos puntuales.
-      </div>
-      <div class="bars" id="monthlyBars"><div class="empty">Cargando…</div></div>
-    </div>
-
+    <div class="tab-panel" data-tab-panel="compras">
     <div class="section-label" style="margin-top:24px">Calculadora de compra</div>
     <div class="card" style="padding:16px; position:relative;">
       <button class="help-btn" type="button">?</button>
@@ -450,6 +480,8 @@
       <div class="mini-header-row"><span>SKU</span><span>Unidades a comprar</span></div>
       <div id="buyTableBody"><div class="empty">Cargando…</div></div>
     </div>
+    </div>
+
   </div>
 
 <script>
@@ -1236,6 +1268,25 @@
   window.addEventListener('resize', function(){ closeAllPopovers(); });
 
   document.getElementById('refreshBtn').addEventListener('click', load);
+
+  // ---------- Pestañas ----------
+  var TAB_KEY = 'coraz_dash_tab';
+  function setTab(tab){
+    document.querySelectorAll('.tab-btn').forEach(function(b){
+      b.classList.toggle('active', b.dataset.tab === tab);
+    });
+    document.querySelectorAll('.tab-panel').forEach(function(p){
+      p.classList.toggle('active', p.dataset.tabPanel === tab);
+    });
+    localStorage.setItem(TAB_KEY, tab);
+  }
+  document.getElementById('tabBar').addEventListener('click', function(e){
+    var btn = e.target.closest('.tab-btn');
+    if(!btn) return;
+    setTab(btn.dataset.tab);
+  });
+  var savedTab = localStorage.getItem(TAB_KEY);
+  if(savedTab) setTab(savedTab);
 
   // ---------- Cuenta regresiva hasta la proxima corrida del cron (cada hora en punto) ----------
   function updateCountdown(){
