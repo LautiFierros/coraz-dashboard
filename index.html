@@ -189,7 +189,7 @@
         <div class="title">Panel de ventas</div>
       </div>
       <div style="display:flex; gap:8px;">
-        <button class="refresh-btn" id="syncBtn" title="Sincronizar ahora con Mercado Libre" style="width:auto; padding:0 12px; font-size:11px; font-weight:700; gap:6px;">
+        <button class="refresh-btn" id="syncBtn" title="Sincronizar ventas, costos y pagos ahora" style="width:auto; padding:0 12px; font-size:11px; font-weight:700; gap:6px;">
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
             <path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83"/>
           </svg>
@@ -1320,33 +1320,48 @@
   updateCountdown();
   setInterval(updateCountdown, 1000);
 
-  // ---------- Sincronizar ahora (llama a ml-sync-ventas antes de refrescar) ----------
-  var SYNC_URL = 'https://kvewsxrfogosjwehookj.supabase.co/functions/v1/ml-sync-ventas';
+  // ---------- Sincronizar ahora (ventas + costos + pagos, todo junto) ----------
+  var SYNC_VENTAS_URL = 'https://kvewsxrfogosjwehookj.supabase.co/functions/v1/ml-sync-ventas';
+  var SYNC_COSTOS_URL = 'https://kvewsxrfogosjwehookj.supabase.co/functions/v1/ms-sync-costos';
+  var SYNC_PAGOS_URL = 'https://kvewsxrfogosjwehookj.supabase.co/functions/v1/ms-sync-pagos';
   document.getElementById('syncBtn').addEventListener('click', function(){
     var btn = this;
     btn.disabled = true;
     btn.classList.add('spinning');
-    var originalText = btn.textContent;
     btn.lastChild.textContent = ' Sincronizando…';
 
     var controller = new AbortController();
-    var timeoutId = setTimeout(function(){ controller.abort(); }, 25000);
+    var timeoutId = setTimeout(function(){ controller.abort(); }, 60000);
+    var auth = { Authorization: authHeader() };
 
-    fetch(SYNC_URL, { signal: controller.signal, cache: 'no-store', headers: { Authorization: authHeader() } })
-      .then(function(resp){
+    function llamar(url){
+      return fetch(url, { signal: controller.signal, cache: 'no-store', headers: auth })
+        .then(function(resp){
+          if(resp.status === 401){ showGate('La contraseña ya no es válida.'); throw new Error('__handled__'); }
+          if(!resp.ok) return resp.text().then(function(t){ throw new Error('HTTP ' + resp.status + ': ' + t.slice(0,150)); });
+          return resp.json();
+        })
+        .then(function(json){
+          if(json.ok === false) throw new Error(json.error || 'error desconocido');
+          return json;
+        });
+    }
+
+    Promise.allSettled([llamar(SYNC_VENTAS_URL), llamar(SYNC_COSTOS_URL), llamar(SYNC_PAGOS_URL)])
+      .then(function(results){
         clearTimeout(timeoutId);
-        if(resp.status === 401){ showGate('La contraseña ya no es válida.'); throw new Error('__handled__'); }
-        if(!resp.ok) return resp.text().then(function(t){ throw new Error('HTTP ' + resp.status + ': ' + t.slice(0,200)); });
-        return resp.json();
-      })
-      .then(function(json){
-        if(!json.ok) throw new Error(json.error || 'error desconocido');
+        var nombres = ['ventas', 'costos', 'pagos'];
+        var fallos = [];
+        results.forEach(function(r, i){
+          if(r.status === 'rejected' && r.reason && r.reason.message !== '__handled__'){
+            fallos.push(nombres[i] + ': ' + r.reason.message);
+          }
+        });
         load();
         loadBuyCalc();
-      })
-      .catch(function(e){
-        if(e && e.message === '__handled__') return;
-        renderError('sincronización manual falló — ' + (e && e.name === 'AbortError' ? 'se agotó el tiempo de espera.' : (e.message || String(e))));
+        if(fallos.length > 0){
+          renderError('sincronización parcial — falló: ' + fallos.join(' · '));
+        }
       })
       .finally(function(){
         btn.disabled = false;
