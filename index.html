@@ -389,6 +389,15 @@
         <div class="kpi-value mono" id="kpiConcentracionGasto">—</div>
         <div class="kpi-sub">top 3 destinos de pago</div>
       </div>
+      <div class="kpi-card">
+        <button class="help-btn" type="button">?</button>
+        <div class="help-popover">
+          Saldo disponible en tu cuenta de Mercado Pago, según el último reporte de Liberaciones sincronizado. Se actualiza cada hora sola.
+        </div>
+        <div class="kpi-label">SALDO EN MERCADO PAGO</div>
+        <div class="kpi-value mono" id="kpiSaldoMP">—</div>
+        <div class="kpi-sub" id="kpiSaldoMPSub">—</div>
+      </div>
     </div>
 
     <div id="vencimientosBox"></div>
@@ -1062,6 +1071,15 @@
 
     document.getElementById('kpiConcentracionGasto').textContent = (data.concentracion_top3_pct||0).toFixed(0) + '%';
 
+    if(data.saldo_mp === null || data.saldo_mp === undefined){
+      document.getElementById('kpiSaldoMP').textContent = 'sin datos';
+      document.getElementById('kpiSaldoMPSub').textContent = 'todavía no sincronizó';
+    } else {
+      document.getElementById('kpiSaldoMP').textContent = fmtARS(data.saldo_mp);
+      var actMp = data.saldo_mp_actualizado ? new Date(data.saldo_mp_actualizado).toLocaleString('es-AR', {day:'2-digit', month:'2-digit', hour:'2-digit', minute:'2-digit'}) : '—';
+      document.getElementById('kpiSaldoMPSub').textContent = 'actualizado ' + actMp;
+    }
+
     // vencidos + proximos
     var vencBox = document.getElementById('vencimientosBox');
     var vencidos = data.vencidos || [];
@@ -1324,6 +1342,7 @@
   var SYNC_VENTAS_URL = 'https://kvewsxrfogosjwehookj.supabase.co/functions/v1/ml-sync-ventas';
   var SYNC_COSTOS_URL = 'https://kvewsxrfogosjwehookj.supabase.co/functions/v1/ms-sync-costos';
   var SYNC_PAGOS_URL = 'https://kvewsxrfogosjwehookj.supabase.co/functions/v1/ms-sync-pagos';
+  var SYNC_SALDO_URL = 'https://kvewsxrfogosjwehookj.supabase.co/functions/v1/mp-sync-saldo';
   document.getElementById('syncBtn').addEventListener('click', function(){
     var btn = this;
     btn.disabled = true;
@@ -1347,10 +1366,10 @@
         });
     }
 
-    Promise.allSettled([llamar(SYNC_VENTAS_URL), llamar(SYNC_COSTOS_URL), llamar(SYNC_PAGOS_URL)])
+    Promise.allSettled([llamar(SYNC_VENTAS_URL), llamar(SYNC_COSTOS_URL), llamar(SYNC_PAGOS_URL), llamar(SYNC_SALDO_URL)])
       .then(function(results){
         clearTimeout(timeoutId);
-        var nombres = ['ventas', 'costos', 'pagos'];
+        var nombres = ['ventas', 'costos', 'pagos', 'saldo MP'];
         var fallos = [];
         results.forEach(function(r, i){
           if(r.status === 'rejected' && r.reason && r.reason.message !== '__handled__'){
