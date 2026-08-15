@@ -1121,15 +1121,27 @@
     if(liberaciones.length === 0){
       libBox.innerHTML = '';
     } else {
-      var hoyStr = new Date().toISOString().slice(0,10);
+      function fechaLocalStr(d){
+        var y = d.getFullYear(), m = String(d.getMonth()+1).padStart(2,'0'), dd = String(d.getDate()).padStart(2,'0');
+        return y + '-' + m + '-' + dd;
+      }
+      var hoyDate = new Date();
+      var hoyStr = fechaLocalStr(hoyDate);
+      var mananaDate = new Date(hoyDate); mananaDate.setDate(mananaDate.getDate() + 1);
+      var mananaStr = fechaLocalStr(mananaDate);
+      var diasSemana = ['dom','lun','mar','miérc','jue','vier','sáb'];
+
       var libHtml = '<div class="alert" style="border-color:var(--green, #2e7d32);">' +
         '<div class="alert-title" style="display:flex; justify-content:space-between; align-items:center;">' +
           '<span>💰 DINERO A LIBERAR EN MP (' + fmtARS(data.total_a_liberar) + ')</span>' +
         '</div>' +
         liberaciones.map(function(l){
           var esHoy = l.fecha === hoyStr;
+          var esManana = l.fecha === mananaStr;
           var fechaObj = new Date(l.fecha + 'T12:00:00');
-          var fechaTxt = esHoy ? 'hoy' : fechaObj.toLocaleDateString('es-AR', {day:'2-digit', month:'2-digit'});
+          var fechaCorta = fechaObj.toLocaleDateString('es-AR', {day:'2-digit', month:'2-digit'});
+          var diaSemana = diasSemana[fechaObj.getDay()];
+          var fechaTxt = esHoy ? ('hoy · ' + fechaCorta) : esManana ? ('mañana · ' + fechaCorta) : (diaSemana + ' ' + fechaCorta);
           var cantTxt = l.cantidad_pagos === 1 ? '1 pago' : l.cantidad_pagos + ' pagos';
           return '<div class="alert-row"><span>' + fechaTxt + '</span><span>' + fmtARS(l.monto) + ' · ' + cantTxt + '</span></div>';
         }).join('') +
