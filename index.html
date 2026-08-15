@@ -402,6 +402,8 @@
 
     <div id="vencimientosBox"></div>
 
+    <div id="liberacionesBox"></div>
+
     <div class="section-label">Egresos por categoría</div>
     <div class="card" style="position:relative;">
       <button class="help-btn" type="button">?</button>
@@ -1111,6 +1113,28 @@
         }).join('') +
       '</div>';
       vencBox.innerHTML = html;
+    }
+
+    // dinero a liberar de Mercado Pago, desglosado por dia
+    var libBox = document.getElementById('liberacionesBox');
+    var liberaciones = data.liberaciones_pendientes || [];
+    if(liberaciones.length === 0){
+      libBox.innerHTML = '';
+    } else {
+      var hoyStr = new Date().toISOString().slice(0,10);
+      var libHtml = '<div class="alert" style="border-color:var(--green, #2e7d32);">' +
+        '<div class="alert-title" style="display:flex; justify-content:space-between; align-items:center;">' +
+          '<span>💰 DINERO A LIBERAR EN MP (' + fmtARS(data.total_a_liberar) + ')</span>' +
+        '</div>' +
+        liberaciones.map(function(l){
+          var esHoy = l.fecha === hoyStr;
+          var fechaObj = new Date(l.fecha + 'T12:00:00');
+          var fechaTxt = esHoy ? 'hoy' : fechaObj.toLocaleDateString('es-AR', {day:'2-digit', month:'2-digit'});
+          var cantTxt = l.cantidad_pagos === 1 ? '1 pago' : l.cantidad_pagos + ' pagos';
+          return '<div class="alert-row"><span>' + fechaTxt + '</span><span>' + fmtARS(l.monto) + ' · ' + cantTxt + '</span></div>';
+        }).join('') +
+      '</div>';
+      libBox.innerHTML = libHtml;
     }
 
     // desglose por categoria
