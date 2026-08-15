@@ -398,6 +398,7 @@
         <div class="kpi-value mono" id="kpiSaldoMP">—</div>
         <div class="kpi-sub" id="kpiSaldoMPSub">—</div>
         <div class="kpi-sub mono" id="kpiSaldoMPLiberar" style="margin-top:2px;">—</div>
+        <div class="kpi-sub" id="kpiSaldoMPRuns" style="margin-top:2px; font-size:10px;">—</div>
       </div>
     </div>
 
@@ -1087,6 +1088,14 @@
       liberarEl.textContent = '';
     } else {
       liberarEl.innerHTML = 'a liberar: <span style="color:var(--amber);font-weight:600;">' + fmtARS(data.total_a_liberar) + '</span>';
+    }
+    var runsEl = document.getElementById('kpiSaldoMPRuns');
+    if(data.mp_saldo_runs_hoy === null || data.mp_saldo_runs_hoy === undefined){
+      runsEl.textContent = '';
+    } else {
+      var runsHoy = data.mp_saldo_runs_hoy, runsLimite = data.mp_saldo_runs_limite || 24;
+      var runsColor = runsHoy >= runsLimite ? 'var(--red)' : 'var(--muted)';
+      runsEl.innerHTML = '<span style="color:' + runsColor + '">' + runsHoy + '/' + runsLimite + ' corridas hoy</span>';
     }
 
     // vencidos + proximos
