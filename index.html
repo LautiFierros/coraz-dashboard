@@ -272,6 +272,13 @@
 
     <div class="footer-note" id="footerNote">Datos de Mercado Libre, sincronizados automáticamente. Costos sincronizados desde el maestro.</div>
 
+    <details class="advanced-details" style="margin-top:0;">
+      <summary>Ver ventas individuales con número de orden (últimas 150)</summary>
+      <div class="card" style="margin-top:12px;">
+        <div class="mini-header-row"><span>Fecha / SKU</span><span>Monto</span></div>
+        <div id="ventasIndividualesBody"><div class="empty">Cargando…</div></div>
+      </div>
+    </details>
 
     <div class="section-label">Medio de pago (período actual)</div>
     <div class="card" id="paymentCard"><div class="empty">Cargando…</div></div>
@@ -710,6 +717,7 @@
 
     renderKpis(data);
     renderPayments(data);
+    renderVentasIndividuales(data);
     renderSeasonality(data);
     renderMonthly(data);
     renderGoal(data);
@@ -751,6 +759,31 @@
     coberturaEl.style.color = coberturaFact < 50 ? 'var(--red)' : 'var(--text)';
 
     renderRentabilidadBox(data);
+  }
+
+  function renderVentasIndividuales(data){
+    var el = document.getElementById('ventasIndividualesBody');
+    var ventas = data.ventas_individuales || [];
+    if(ventas.length === 0){
+      el.innerHTML = '<div class="empty">Sin ventas individuales en este período.</div>';
+      return;
+    }
+    el.innerHTML = ventas.map(function(v){
+      var fecha = new Date(v.sale_date);
+      var fechaTxt = fecha.toLocaleString('es-AR', {day:'2-digit', month:'2-digit', hour:'2-digit', minute:'2-digit'});
+      var link = 'https://vendedores.mercadolibre.com.ar/ventas/omni/listado?startPeriod=&sort=DATE_CLOSED_DESC&filters=&subFilters=&search=' + v.ml_order_id + '&limit=50&offset=0';
+      var cancelado = String(v.status||'').toLowerCase().indexOf('cancel') !== -1;
+      return '<div class="detail-row">' +
+        '<div class="detail-row-top">' +
+          '<div>' +
+            '<div class="mono" style="font-size:12.5px;' + (cancelado ? 'color:var(--red);text-decoration:line-through;' : '') + '">' + v.sku + ' · ' + fechaTxt + '</div>' +
+            '<div class="mono" style="font-size:10.5px;color:var(--muted);">#' + v.ml_order_id + '</div>' +
+          '</div>' +
+          '<div class="mono detail-facturado" style="font-size:13px;">' + fmtARS(v.gross_amount) + '</div>' +
+        '</div>' +
+        '<div class="detail-row-sub"><a href="' + link + '" target="_blank" rel="noopener" style="color:var(--amber);text-decoration:none;">Ver en ML ↗</a></div>' +
+      '</div>';
+    }).join('');
   }
 
   function renderPayments(data){
