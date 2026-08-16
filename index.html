@@ -485,6 +485,7 @@
             <input type="number" id="calcLookback" value="90" min="3" />
           </div>
         </div>
+        <div id="calcDetalleCalculo" style="margin-top:12px; font-size:11.5px; color:var(--muted);"></div>
       </details>
 
       <div class="kpi-sub" id="calcStatus" style="margin-top:12px">Calculando…</div>
@@ -980,7 +981,9 @@
           else if(cambio < -0.2) tendencia = 'bajando';
         }
 
-        return { sku: sku, vel: velPonderada, toBuy: toBuy, tendencia: tendencia };
+        return { sku: sku, vel: velPonderada, toBuy: toBuy, tendencia: tendencia, detalleTramos: u.map(function(units, idx){
+          return { units: units, days: tramos[idx].days, vel: velTramos[idx], weight: tramos[idx].weight };
+        }) };
       }).filter(function(r){ return r.toBuy > 0; });
 
       var skuFilter = (document.getElementById('calcSkuFilter').value || '').trim().toLowerCase();
@@ -991,6 +994,28 @@
 
       var presetNombre = { plano: 'histórico completo', moderado: 'equilibrado', agresivo: 'reciente', muy_agresivo: 'reciente' }[activeWeightPreset] || 'equilibrado';
       statusEl.textContent = 'Comprando para cubrir ' + coverage + ' días, mirando el ritmo "' + presetNombre + '" de venta.';
+
+      var detalleEl = document.getElementById('calcDetalleCalculo');
+      if(rows.length === 0){
+        detalleEl.innerHTML = '';
+      } else {
+        var nombreTramo = ['Reciente', 'Medio', 'Histórico'];
+        detalleEl.innerHTML = rows.slice(0, 5).map(function(r){
+          var filas = r.detalleTramos.map(function(t, i){
+            return '<div style="display:flex;justify-content:space-between;padding:2px 0;">' +
+              '<span>' + nombreTramo[i] + ' (' + t.days + 'd)</span>' +
+              '<span class="mono">' + t.units + ' u. ÷ ' + t.days + 'd = ' + t.vel.toFixed(2) + ' u./d  ×peso ' + t.weight + '</span>' +
+            '</div>';
+          }).join('');
+          return '<div style="border-top:1px solid var(--border); padding-top:8px; margin-top:8px;">' +
+            '<div style="font-weight:600; color:var(--text); margin-bottom:4px;" class="mono">' + r.sku + '</div>' +
+            filas +
+            '<div style="display:flex;justify-content:space-between;padding-top:4px;margin-top:4px;border-top:1px dashed var(--border);color:var(--amber);font-weight:600;">' +
+              '<span>Ponderado</span><span class="mono">' + r.vel.toFixed(2) + ' u./d × ' + coverage + 'd = ' + (r.vel*coverage).toFixed(1) + ' → ' + r.toBuy + ' u.</span>' +
+            '</div>' +
+          '</div>';
+        }).join('');
+      }
 
       if(rows.length === 0){
         tbody.innerHTML = skuFilter
