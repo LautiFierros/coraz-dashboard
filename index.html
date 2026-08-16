@@ -1000,10 +1000,15 @@
         detalleEl.innerHTML = '';
       } else {
         var nombreTramo = ['Reciente', 'Medio', 'Histórico'];
+        var rangoTramo = [
+          'día 0-' + corte1,
+          'día ' + corte1 + '-' + corte2,
+          'día ' + corte2 + '-' + lookback
+        ];
         detalleEl.innerHTML = rows.slice(0, 5).map(function(r){
           var filas = r.detalleTramos.map(function(t, i){
             return '<div style="display:flex;justify-content:space-between;padding:2px 0;">' +
-              '<span>' + nombreTramo[i] + ' (' + t.days + 'd)</span>' +
+              '<span>' + nombreTramo[i] + ' (' + rangoTramo[i] + ', ' + t.days + 'd)</span>' +
               '<span class="mono">' + t.units + ' u. ÷ ' + t.days + 'd = ' + t.vel.toFixed(2) + ' u./d  ×peso ' + t.weight + '</span>' +
             '</div>';
           }).join('');
