@@ -1147,7 +1147,8 @@
     } else {
       document.getElementById('kpiSaldoMP').textContent = fmtARS(data.saldo_mp);
       var actMp = data.saldo_mp_actualizado ? new Date(data.saldo_mp_actualizado).toLocaleString('es-AR', {day:'2-digit', month:'2-digit', hour:'2-digit', minute:'2-digit'}) : '—';
-      document.getElementById('kpiSaldoMPSub').textContent = 'actualizado ' + actMp;
+      var origenTxt = data.saldo_mp_origen === 'manual' ? 'manual' : (data.saldo_mp_origen === 'automatico' ? 'automático' : null);
+      document.getElementById('kpiSaldoMPSub').textContent = 'actualizado ' + actMp + (origenTxt ? ' · ' + origenTxt : '');
     }
     var liberarEl = document.getElementById('kpiSaldoMPLiberar');
     if(data.total_a_liberar === null || data.total_a_liberar === undefined){
@@ -1460,7 +1461,7 @@
   var SYNC_VENTAS_URL = 'https://kvewsxrfogosjwehookj.supabase.co/functions/v1/ml-sync-ventas';
   var SYNC_COSTOS_URL = 'https://kvewsxrfogosjwehookj.supabase.co/functions/v1/ms-sync-costos';
   var SYNC_PAGOS_URL = 'https://kvewsxrfogosjwehookj.supabase.co/functions/v1/ms-sync-pagos';
-  var SYNC_SALDO_URL = 'https://kvewsxrfogosjwehookj.supabase.co/functions/v1/mp-sync-saldo';
+  var SYNC_SALDO_URL = 'https://kvewsxrfogosjwehookj.supabase.co/functions/v1/mp-sync-saldo?origen=manual';
   document.getElementById('syncBtn').addEventListener('click', function(){
     var btn = this;
     btn.disabled = true;
