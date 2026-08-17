@@ -773,6 +773,9 @@
       var fechaTxt = fecha.toLocaleString('es-AR', {day:'2-digit', month:'2-digit', hour:'2-digit', minute:'2-digit'});
       var link = 'https://vendedores.mercadolibre.com.ar/ventas/omni/listado?startPeriod=&sort=DATE_CLOSED_DESC&filters=&subFilters=&search=' + v.ml_order_id + '&limit=50&offset=0';
       var cancelado = String(v.status||'').toLowerCase().indexOf('cancel') !== -1;
+      var envioBadge = v.tipo_envio
+        ? '<span class="mono" style="font-size:10px; padding:1px 7px; border-radius:20px; border:1px solid var(--border); color:var(--muted); letter-spacing:.02em;">' + v.tipo_envio + '</span>'
+        : '';
       return '<div class="detail-row">' +
         '<div class="detail-row-top">' +
           '<div>' +
@@ -781,7 +784,7 @@
           '</div>' +
           '<div class="mono detail-facturado" style="font-size:13px;">' + fmtARS(v.gross_amount) + '</div>' +
         '</div>' +
-        '<div class="detail-row-sub"><a href="' + link + '" target="_blank" rel="noopener" style="color:var(--amber);text-decoration:none;">Ver en ML ↗</a></div>' +
+        '<div class="detail-row-sub">' + envioBadge + '<a href="' + link + '" target="_blank" rel="noopener" style="color:var(--amber);text-decoration:none;">Ver en ML ↗</a></div>' +
       '</div>';
     }).join('');
   }
