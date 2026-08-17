@@ -153,6 +153,20 @@
   .buy-qty-big{font-size:15px; font-weight:700; color:var(--amber); white-space:nowrap;}
   .buy-row-sub{margin-top:4px; font-size:11.5px; color:var(--muted);}
   .mini-header-row{display:flex; justify-content:space-between; padding:10px 14px; font-size:10.5px; color:var(--muted); letter-spacing:.05em; text-transform:uppercase; border-bottom:1px solid var(--border);}
+  .doc-section{padding:16px;}
+  .doc-section p{font-size:13px; line-height:1.55; color:var(--text); margin:0 0 10px;}
+  .doc-section p:last-child{margin-bottom:0;}
+  .doc-section ul{margin:0 0 10px; padding-left:18px;}
+  .doc-section li{font-size:13px; line-height:1.6; color:var(--text); margin-bottom:4px;}
+  .doc-h{font-size:13.5px; font-weight:700; color:var(--amber); margin:0 0 8px;}
+  .doc-table{width:100%; border-collapse:collapse; font-size:12px;}
+  .doc-table th{text-align:left; font-size:10px; letter-spacing:.05em; text-transform:uppercase; color:var(--muted); padding:8px 10px; border-bottom:1px solid var(--border);}
+  .doc-table td{padding:9px 10px; border-bottom:1px solid var(--border); color:var(--text); vertical-align:top; line-height:1.45;}
+  .doc-table tr:last-child td{border-bottom:none;}
+  .doc-table .job-name{font-family:'IBM Plex Mono',monospace; font-size:11px; color:var(--text);}
+  .doc-table .freq{color:var(--amber); font-weight:600; white-space:nowrap;}
+  .doc-badge{display:inline-block; font-size:10px; padding:1px 7px; border-radius:20px; border:1px solid var(--border); color:var(--muted); letter-spacing:.02em; margin-top:4px;}
+  .doc-badge.limite{border-color:var(--red); color:#E8A79C;}
   .advanced-details{margin-top:14px; border-top:1px solid var(--border); padding-top:10px;}
   .advanced-details summary{
     font-size:11.5px; color:var(--muted); cursor:pointer; list-style:none; user-select:none;
@@ -233,6 +247,7 @@
       <button class="tab-btn" data-tab="rentabilidad">Rentabilidad</button>
       <button class="tab-btn" data-tab="caja">Caja</button>
       <button class="tab-btn" data-tab="compras">Compras</button>
+      <button class="tab-btn" data-tab="funcionamiento">Funcionamiento</button>
     </div>
 
     <div class="tab-panel active" data-tab-panel="ventas">
@@ -500,6 +515,75 @@
       <div class="mini-header-row"><span>SKU</span><span>Unidades a comprar</span></div>
       <div id="buyTableBody"><div class="empty">Cargando…</div></div>
     </div>
+    </div>
+
+    <div class="tab-panel" data-tab-panel="funcionamiento">
+      <div class="section-label" style="margin-top:24px">Cómo funciona el panel</div>
+      <div class="card doc-section">
+        <p>Este dashboard junta datos de 3 fuentes distintas y los guarda en una base propia (Supabase), para que las 4 pestañas anteriores no tengan que ir a pedirle todo a cada API cada vez que las abrís. Un conjunto de tareas automáticas ("crons") corre solas, en distintos horarios, para mantener esa base al día.</p>
+        <ul>
+          <li><b>Mercado Libre (ML)</b>: ventas, publicaciones/catálogo, tipo de envío de cada orden.</li>
+          <li><b>Mercado Pago (MP)</b>: saldo disponible en tu cuenta, pagos pendientes de liberación.</li>
+          <li><b>Excel "Productos Coraz.xlsx" (OneDrive, vía Microsoft Graph)</b>: costos de productos y pagos/gastos que cargás vos a mano.</li>
+        </ul>
+        <p>Todo esto vive en Supabase: la base de datos (Postgres), las funciones que hablan con cada API (Edge Functions) y el programador de tareas (pg_cron) que las dispara solo. El botón <b>"Sincronizar"</b> de arriba de la pestaña Ventas dispara ventas + costos + pagos + saldo MP todos juntos, a demanda, sin esperar al horario automático.</p>
+      </div>
+
+      <div class="section-label">Sincronizaciones automáticas</div>
+      <div class="card" style="overflow-x:auto;">
+        <table class="doc-table">
+          <thead>
+            <tr><th>Tarea</th><th>Frecuencia</th><th>Qué hace</th></tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><div class="job-name">ml-sync-ventas</div></td>
+              <td class="freq">cada 5 min</td>
+              <td>Trae ventas nuevas y cambios de estado (ej. cancelaciones) de Mercado Libre. Es incremental: solo pide lo que cambió desde la última corrida, no reprocesa todo de nuevo cada vez — por eso puede correr tan seguido sin castigar la API de ML.</td>
+            </tr>
+            <tr>
+              <td><div class="job-name">stock-sync-ventas</div><br><div class="job-name" style="margin-top:4px">stock-sync-devoluciones</div></td>
+              <td class="freq">cada 10 min</td>
+              <td>Descuenta stock por ventas nuevas y lo repone por devoluciones.</td>
+            </tr>
+            <tr>
+              <td><div class="job-name">mp-sync-liberaciones</div></td>
+              <td class="freq">cada 10 min</td>
+              <td>Pagos aprobados que Mercado Pago todavía no liberó, agrupados por fecha de liberación futura (próximos 45 días). Alimenta el cuadro "A liberar" de la pestaña Caja.</td>
+            </tr>
+            <tr>
+              <td><div class="job-name">mp-sync-saldo</div></td>
+              <td class="freq">~42 min, de 7 a 24hs</td>
+              <td>Saldo disponible ahora mismo en tu cuenta de Mercado Pago.
+                <div class="doc-badge limite">Mercado Pago solo deja generar 24 reportes de saldo por día — este intervalo está calculado para no pasarse: (17hs activas × 60) ÷ 24 ≈ 42 min. No corre entre las 00 y las 7, para no gastar corridas en horario sin ventas.</div>
+              </td>
+            </tr>
+            <tr>
+              <td><div class="job-name">ms-sync-costos</div><br><div class="job-name" style="margin-top:4px">ms-sync-pagos</div></td>
+              <td class="freq">2x/día (8 y 20hs)</td>
+              <td>Lee el Excel "Productos Coraz.xlsx" (costos de productos y pagos/gastos). No hace falta más seguido porque ese archivo lo editás vos a mano — no cambia solo.</td>
+            </tr>
+            <tr>
+              <td><div class="job-name">stock-sync-ml-items</div></td>
+              <td class="freq">1x/día, 6hs</td>
+              <td>Barrido completo del catálogo de ML: detecta publicaciones nuevas, cambios de SKU, estados atípicos, cierres, y kits sin composición cargada. Es una revisión estructural, no algo que cambie de un momento a otro — por eso alcanza con una vez al día, antes de arrancar la operación.</td>
+            </tr>
+            <tr>
+              <td><div class="job-name">chequeo-vencimientos</div></td>
+              <td class="freq">cada hora</td>
+              <td>Revisa pagos con vencimiento próximo. Costo insignificante, no hay razón para tocarlo.</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="section-label">Qué muestra cada pestaña</div>
+      <div class="card doc-section">
+        <p><b>Ventas</b> — evolución de ventas por período, ranking de productos, detalle de cada orden individual con tipo de envío.</p>
+        <p><b>Rentabilidad</b> — margen real por producto, cruzando precio de venta con costo cargado en el Excel.</p>
+        <p><b>Caja</b> — ingresos y egresos, saldo disponible en MP, pagos por liberar, vencimientos próximos.</p>
+        <p><b>Compras</b> — calculadora que mira el ritmo de venta reciente de cada SKU y sugiere cuánto reponer.</p>
+      </div>
     </div>
 
   </div>
