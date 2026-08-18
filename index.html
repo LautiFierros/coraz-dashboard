@@ -427,6 +427,28 @@
 
     <div id="liberacionesBox"></div>
 
+    <div class="section-label">Flujo de caja proyectado</div>
+    <div class="card" style="padding:16px; position:relative;">
+      <button class="help-btn" type="button">?</button>
+      <div class="help-popover">
+        Parte del saldo actual en MP, suma las liberaciones futuras y resta los pagos pendientes por su fecha de vencimiento — día por día, próximos 45 días. Los pagos diferibles (categoría "devolución personal") se muestran aparte y no se restan. Más allá de la última liberación con datos reales, si activás el run-rate se suma un ingreso diario estimado.
+      </div>
+      <div id="proyeccionCallout" style="margin-bottom:12px;"></div>
+      <div id="proyeccionChart" style="margin-bottom:10px;"></div>
+      <div style="display:flex; align-items:center; gap:10px; flex-wrap:wrap; padding-top:10px; border-top:1px solid var(--border);">
+        <label style="display:flex; align-items:center; gap:6px; font-size:12px; color:var(--muted); cursor:pointer;">
+          <input type="checkbox" id="runRateToggle" style="accent-color:var(--amber);" />
+          Run-rate más allá de lo capturado
+        </label>
+        <div style="display:flex; align-items:center; gap:6px;">
+          <span style="font-size:12px; color:var(--muted);">$</span>
+          <input type="number" id="runRateInput" value="100000" style="width:110px; padding:6px 8px; border-radius:8px; border:1px solid var(--border); background:#0F0D09; color:var(--text); font-family:'IBM Plex Mono',monospace; font-size:12px;" />
+          <span style="font-size:12px; color:var(--muted);">/día neto</span>
+        </div>
+      </div>
+      <div id="proyeccionDiferibles" style="margin-top:10px;"></div>
+    </div>
+
     <div class="section-label">Egresos por categoría</div>
     <div class="card" style="position:relative;">
       <button class="help-btn" type="button">?</button>
@@ -1315,6 +1337,8 @@
       libBox.innerHTML = libHtml;
     }
 
+    renderProyeccion(data);
+
     // desglose por categoria
     var catEl = document.getElementById('categoriaBars');
     var cats = (data.desglose_categoria || []).filter(function(c){ return c.categoria !== '0'; });
@@ -1350,6 +1374,122 @@
       }).join('');
     }
   }
+
+  // ---------- Flujo de caja proyectado ----------
+  var RUNRATE_KEY = 'coraz_dash_runrate';
+  var RUNRATE_ON_KEY = 'coraz_dash_runrate_on';
+  var PROYECCION_DIAS = 45;
+  var ultimaProyeccionData = null;
+
+  function fechaLocalStrP(d){
+    var y = d.getFullYear(), m = String(d.getMonth()+1).padStart(2,'0'), dd = String(d.getDate()).padStart(2,'0');
+    return y + '-' + m + '-' + dd;
+  }
+
+  function calcularProyeccion(data, runRateOn, runRateMonto){
+    var saldoBase = (typeof data.saldo_mp === 'number') ? data.saldo_mp : 0;
+    var liberacionesPorFecha = {};
+    (data.liberaciones_pendientes || []).forEach(function(l){ liberacionesPorFecha[l.fecha] = (liberacionesPorFecha[l.fecha]||0) + l.monto; });
+    var pagosPorFecha = {};
+    (data.pagos_proyeccion || []).forEach(function(p){ pagosPorFecha[p.vencimiento] = (pagosPorFecha[p.vencimiento]||0) + p.importe; });
+
+    var ultimaFechaLiberacion = null;
+    Object.keys(liberacionesPorFecha).forEach(function(f){ if(!ultimaFechaLiberacion || f > ultimaFechaLiberacion) ultimaFechaLiberacion = f; });
+
+    var hoy = new Date();
+    var puntos = [];
+    var saldo = saldoBase;
+    for(var i = 0; i <= PROYECCION_DIAS; i++){
+      var d = new Date(hoy); d.setDate(d.getDate() + i);
+      var fStr = fechaLocalStrP(d);
+      var lib = liberacionesPorFecha[fStr] || 0;
+      var pago = pagosPorFecha[fStr] || 0;
+      var runRateHoy = (runRateOn && ultimaFechaLiberacion && fStr > ultimaFechaLiberacion) ? runRateMonto : 0;
+      saldo = saldo + lib - pago + runRateHoy;
+      puntos.push({ fecha: fStr, saldo: saldo, lib: lib, pago: pago });
+    }
+
+    var minPunto = puntos[0];
+    puntos.forEach(function(p){ if(p.saldo < minPunto.saldo) minPunto = p; });
+
+    return { puntos: puntos, minPunto: minPunto, ultimaFechaLiberacion: ultimaFechaLiberacion, saldoBase: saldoBase };
+  }
+
+  function renderProyeccionChart(puntos){
+    var w = 100, h = 34; // viewBox unidades, escala via CSS
+    var vals = puntos.map(function(p){ return p.saldo; });
+    var maxV = Math.max.apply(null, vals.concat([0]));
+    var minV = Math.min.apply(null, vals.concat([0]));
+    var span = (maxV - minV) || 1;
+    function xFor(i){ return (i / (puntos.length - 1)) * w; }
+    function yFor(v){ return h - ((v - minV) / span) * h; }
+
+    var pathD = puntos.map(function(p, i){ return (i===0?'M':'L') + xFor(i).toFixed(2) + ',' + yFor(p.saldo).toFixed(2); }).join(' ');
+    var zeroY = yFor(0).toFixed(2);
+    var hayNegativo = minV < 0;
+
+    var areaD = pathD + ' L' + xFor(puntos.length-1).toFixed(2) + ',' + h + ' L0,' + h + ' Z';
+
+    return '<svg viewBox="0 0 ' + w + ' ' + h + '" preserveAspectRatio="none" style="width:100%; height:120px; display:block;">' +
+      '<line x1="0" y1="' + zeroY + '" x2="' + w + '" y2="' + zeroY + '" stroke="var(--border)" stroke-width="0.4" stroke-dasharray="1.5,1.5" />' +
+      '<path d="' + areaD + '" fill="' + (hayNegativo ? 'rgba(193,80,62,0.10)' : 'rgba(210,164,74,0.10)') + '" stroke="none" />' +
+      '<path d="' + pathD + '" fill="none" stroke="' + (hayNegativo ? 'var(--red)' : 'var(--amber)') + '" stroke-width="0.6" vector-effect="non-scaling-stroke" />' +
+    '</svg>';
+  }
+
+  function renderProyeccion(data){
+    ultimaProyeccionData = data;
+    var runRateOn = localStorage.getItem(RUNRATE_ON_KEY) === '1';
+    var runRateMonto = parseFloat(localStorage.getItem(RUNRATE_KEY)) || 100000;
+    document.getElementById('runRateToggle').checked = runRateOn;
+    document.getElementById('runRateInput').value = runRateMonto;
+
+    if(data.saldo_mp === null || data.saldo_mp === undefined){
+      document.getElementById('proyeccionCallout').innerHTML = '<div class="empty">Todavía no hay saldo de Mercado Pago sincronizado.</div>';
+      document.getElementById('proyeccionChart').innerHTML = '';
+      document.getElementById('proyeccionDiferibles').innerHTML = '';
+      return;
+    }
+
+    var proy = calcularProyeccion(data, runRateOn, runRateMonto);
+    var min = proy.minPunto;
+    var esNegativo = min.saldo < 0;
+    var fechaObj = new Date(min.fecha + 'T12:00:00');
+    var fechaTxt = fechaObj.toLocaleDateString('es-AR', {day:'2-digit', month:'2-digit'});
+
+    var calloutHtml = '<div class="alert" style="border-color:' + (esNegativo ? 'var(--red)' : 'var(--border)') + '; margin-bottom:0;">' +
+      '<div class="alert-title" style="color:' + (esNegativo ? 'var(--red)' : 'var(--amber)') + '">' +
+        (esNegativo ? '🔴 ' : '📉 ') + 'PUNTO MÁS BAJO: ' + fmtARS(min.saldo) + ' el ' + fechaTxt +
+      '</div>' +
+      (esNegativo ? '<div class="alert-row"><span style="color:var(--red)">Necesitás cubrir</span><span>' + fmtARS(Math.abs(min.saldo)) + '</span></div>' : '') +
+    '</div>';
+    document.getElementById('proyeccionCallout').innerHTML = calloutHtml;
+    document.getElementById('proyeccionChart').innerHTML = renderProyeccionChart(proy.puntos);
+
+    var difBox = document.getElementById('proyeccionDiferibles');
+    var diferibles = data.pagos_diferibles || [];
+    if(diferibles.length === 0){
+      difBox.innerHTML = '';
+    } else {
+      var totalDif = diferibles.reduce(function(s,p){ return s + p.importe; }, 0);
+      difBox.innerHTML = '<div style="font-size:11px; color:var(--muted); margin-bottom:4px;">Pateables / diferibles — no restados de la proyección (' + fmtARS(totalDif) + ')</div>' +
+        diferibles.map(function(p){
+          var fO = new Date(p.vencimiento + 'T12:00:00');
+          var fT = fO.toLocaleDateString('es-AR', {day:'2-digit', month:'2-digit'});
+          return '<div class="alert-row" style="padding:2px 0;"><span>' + p.descripcion + '</span><span>' + fmtARS(p.importe) + ' · ' + fT + '</span></div>';
+        }).join('');
+    }
+  }
+
+  document.getElementById('runRateToggle').addEventListener('change', function(){
+    localStorage.setItem(RUNRATE_ON_KEY, this.checked ? '1' : '0');
+    if(ultimaProyeccionData) renderProyeccion(ultimaProyeccionData);
+  });
+  document.getElementById('runRateInput').addEventListener('input', function(){
+    var v = parseFloat(this.value);
+    if(!isNaN(v)) localStorage.setItem(RUNRATE_KEY, String(v));
+    if(ultimaProyeccionData) renderProyeccion(ultimaProyeccionData);
+  });
 
   function load(){
     renderLoading(true);
