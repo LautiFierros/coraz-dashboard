@@ -1849,7 +1849,13 @@
     var ws = wb.Sheets[wb.SheetNames[0]];
     var aoa = window.XLSX.utils.sheet_to_json(ws, {header:1, raw:false, defval:null});
     if(aoa.length < 4) throw new Error(filename + ': el archivo no tiene el formato esperado');
-    var headers = (aoa[2] || []).map(function(h){ return (h === null || h === undefined) ? '' : String(h).trim(); });
+    var headerRow = -1;
+    for(var hr=0; hr<Math.min(aoa.length, 20); hr++){
+      var rv = (aoa[hr] || []).map(function(h){ return (h === null || h === undefined) ? '' : String(h).trim(); });
+      if(rv.indexOf('# de venta') !== -1){ headerRow = hr; break; }
+    }
+    if(headerRow < 0) throw new Error(filename + ': no encontre la fila de encabezados');
+    var headers = (aoa[headerRow] || []).map(function(h){ return (h === null || h === undefined) ? '' : String(h).trim(); });
     function col(nombre){ return headers.indexOf(nombre); }
     var iVenta = col('# de venta'), iFecha = col('Fecha de venta'), iEstado = col('Estado'),
         iUnid = col('Unidades'), iSku = col('SKU'), iPub = col('# de publicación'),
@@ -1858,7 +1864,7 @@
         iEnvio = col('Costos de envío'), iTotal = col('Total (ARS)');
     if(iVenta < 0 || iSku < 0 || iFecha < 0) throw new Error(filename + ': no encontré las columnas de ML (¿es el reporte "Ventas AR"?)');
 
-    var rows = aoa.slice(3).filter(function(r){ return r && r.some(function(c){ return c !== null && c !== undefined && String(c).trim() !== ''; }); });
+    var rows = aoa.slice(headerRow + 1).filter(function(r){ return r && r.some(function(c){ return c !== null && c !== undefined && String(c).trim() !== ''; }); });
     function cell(r,i){ return (i>=0 && i<r.length) ? r[i] : null; }
     function hasMoney(r){ return !(isNaN(impNum(cell(r,iTotal))) && isNaN(impNum(cell(r,iIng)))); }
     function raw(r, extra){
