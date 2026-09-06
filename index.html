@@ -1965,14 +1965,16 @@
     if(!files.length) return;
     btn.disabled = true; impSetStatus('Leyendo y procesando archivos…');
     cargarXLSX().then(function(){
+      var __ok = [], __err = [];
       return files.reduce(function(prom, file){
-        return prom.then(function(acc){
+        return prom.then(function(){
           return impLeerArchivo(file).then(function(ab){
-            var lineas = impParseReporte(ab, file.name);
-            return acc.concat(lineas);
-          });
+            try { var lineas = impParseReporte(ab, file.name);
+              if(lineas.length){ __ok = __ok.concat(lineas); } else { __err.push(file.name + ': sin ventas legibles'); }
+            } catch(err){ __err.push(file.name + ': ' + (err && err.message ? err.message : 'error de formato')); }
+          }).catch(function(err){ __err.push(file.name + ': ' + (err && err.message ? err.message : 'no se pudo abrir')); });
         });
-      }, Promise.resolve([]));
+      }, Promise.resolve()).then(function(){ window.__impErrores = __err; return __ok; });
     }).then(function(todas){
       impLineas = todas;
       if(!todas.length) throw new Error('no se extrajo ninguna línea de venta de los archivos');
@@ -1989,6 +1991,8 @@
     }).then(function(data){
       if(data.error) throw new Error(data.error);
       impRenderResumen(data, false);
+      var __e = window.__impErrores || [];
+      if(__e.length){ document.getElementById('impResultados').insertAdjacentHTML('beforeend', '<div class="alert" style="border-color:var(--red)"><div class="alert-title" style="color:var(--red)">' + __e.length + ' archivo(s) no se pudieron leer (el resto si se cargo)</div>' + __e.map(function(x){ return '<div class="alert-row"><span>' + x + '</span></div>'; }).join('') + '</div>'); }
       impListoParaCargar = data.nuevas > 0;
       var conf = document.getElementById('impConfirmarBtn');
       conf.disabled = !impListoParaCargar; conf.style.opacity = impListoParaCargar ? '1' : '.5';
