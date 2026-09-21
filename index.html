@@ -8,7 +8,7 @@
 <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
 <style>
   :root{
-    --bg:#15130E; --card:#201C14; --border:#332C1D; --text:#F2EDE1;
+    --bg:#15130E; --card:#201C14; --card2:#262119; --border:#332C1D; --text:#F2EDE1;
     --muted:#948B76; --amber:#E8890C; --amberDim:#7A4E10; --red:#C1503E; --green:#7CA25C;
   }
   *{box-sizing:border-box; margin:0; padding:0;}
@@ -184,6 +184,16 @@
     color:#15130E; font-weight:700; font-size:15px; margin-top:10px; cursor:pointer;
   }
   .hidden{display:none !important;}
+
+  /* Elementos nuevos para Tickets */
+  #toast { position:fixed; left:50%; bottom:24px; transform:translateX(-50%) translateY(20px); max-width:calc(100vw - 32px); background:var(--card2); border:1px solid var(--border); color:var(--text); padding:12px 16px; border-radius:10px; font-size:13.5px; box-shadow:0 8px 28px rgba(0,0,0,0.45); opacity:0; pointer-events:none; transition:opacity .18s, transform .18s; z-index:2000; }
+  #toast.show { opacity:1; transform:translateX(-50%) translateY(0); }
+  #toast.ok { border-color:var(--green); }
+  #toast.bad { border-color:var(--red); }
+  .badge { display:inline-block; padding:2px 8px; border-radius:999px; font-size:11px; margin-left:6px; }
+  .badge.aplicado { background:rgba(124,162,92,0.16); color:var(--green); }
+  .badge.parcial { background:rgba(232,137,12,0.16); color:var(--amber); }
+  .badge.pendiente { background:var(--card); color:var(--muted); border: 1px solid var(--border); }
 </style>
 </head>
 <body>
@@ -244,7 +254,6 @@
 
     <div id="errBox"></div>
 
-
     <div class="tab-bar" id="tabBar">
       <button class="tab-btn active" data-tab="ventas">Ventas</button>
       <button class="tab-btn" data-tab="rentabilidad">Rentabilidad</button>
@@ -252,299 +261,295 @@
       <button class="tab-btn" data-tab="compras">Compras</button>
       <button class="tab-btn" data-tab="importar">Importar histórico</button>
       <button class="tab-btn" data-tab="funcionamiento">Funcionamiento</button>
+      <button class="tab-btn" data-tab="tickets">Tickets</button>
     </div>
 
     <div class="tab-panel active" data-tab-panel="ventas">
-    <div id="stoppedBox"></div>
+      <div id="stoppedBox"></div>
 
-    <div class="hero">
-      <button class="help-btn" type="button">?</button>
-      <div class="help-popover">
-        <b>Facturado</b>: total bruto vendido en el período (precio de venta, antes de comisiones de ML y de tu costo), sin contar canceladas. <b>Unidades</b>: artículos vendidos. <b>Ventas</b>: cantidad de operaciones. <b>Ticket prom.</b>: facturado ÷ ventas. El % compara contra el período anterior de igual duración.
-      </div>
-      <div class="hero-label">FACTURADO EN EL PERIODO</div>
-      <div class="hero-top">
-        <div class="hero-value mono loading" id="heroValue">· · ·</div>
-        <div id="heroDelta"></div>
-      </div>
-      <div class="stats">
-        <div>
-          <div class="stat-value mono" id="statUnits">—</div>
-          <div class="stat-label">Unidades</div>
+      <div class="hero">
+        <button class="help-btn" type="button">?</button>
+        <div class="help-popover">
+          <b>Facturado</b>: total bruto vendido en el período (precio de venta, antes de comisiones de ML y de tu costo), sin contar canceladas. <b>Unidades</b>: artículos vendidos. <b>Ventas</b>: cantidad de operaciones. <b>Ticket prom.</b>: facturado ÷ ventas. El % compara contra el período anterior de igual duración.
         </div>
-        <div>
-          <div class="stat-value mono" id="statVentas">—</div>
-          <div class="stat-label">Ventas</div>
+        <div class="hero-label">FACTURADO EN EL PERIODO</div>
+        <div class="hero-top">
+          <div class="hero-value mono loading" id="heroValue">· · ·</div>
+          <div id="heroDelta"></div>
         </div>
-        <div>
-          <div class="stat-value mono" id="statTicket">— <span class="stat-delta mono" id="ticketDelta"></span></div>
-          <div class="stat-label">Ticket prom.</div>
+        <div class="stats">
+          <div>
+            <div class="stat-value mono" id="statUnits">—</div>
+            <div class="stat-label">Unidades</div>
+          </div>
+          <div>
+            <div class="stat-value mono" id="statVentas">—</div>
+            <div class="stat-label">Ventas</div>
+          </div>
+          <div>
+            <div class="stat-value mono" id="statTicket">— <span class="stat-delta mono" id="ticketDelta"></span></div>
+            <div class="stat-label">Ticket prom.</div>
+          </div>
         </div>
       </div>
-    </div>
 
-    <div class="section-label">Ranking por SKU</div>
-    <div class="card"><div class="bars" id="bars"><div class="empty">Cargando…</div></div></div>
+      <div class="section-label">Ranking por SKU</div>
+      <div class="card"><div class="bars" id="bars"><div class="empty">Cargando…</div></div></div>
 
-    <div class="section-label">Detalle (vs. período anterior)</div>
-    <div class="card">
-      <div class="mini-header-row"><span>SKU</span><span>Facturado</span></div>
-      <div id="tableBody"><div class="empty">Cargando…</div></div>
-    </div>
-
-    <div class="footer-note" id="footerNote">Datos de Mercado Libre, sincronizados automáticamente. Costos sincronizados desde el maestro.</div>
-
-    <details class="advanced-details" style="margin-top:0;">
-      <summary>Ver ventas individuales con número de orden (últimas 150)</summary>
-      <div class="card" style="margin-top:12px;">
-        <div class="mini-header-row"><span>Fecha / SKU</span><span>Monto</span></div>
-        <div id="ventasIndividualesBody"><div class="empty">Cargando…</div></div>
+      <div class="section-label">Detalle (vs. período anterior)</div>
+      <div class="card">
+        <div class="mini-header-row"><span>SKU</span><span>Facturado</span></div>
+        <div id="tableBody"><div class="empty">Cargando…</div></div>
       </div>
-    </details>
 
-    <div class="section-label">Medio de pago (período actual)</div>
-    <div class="card" id="paymentCard"><div class="empty">Cargando…</div></div>
+      <div class="footer-note" id="footerNote">Datos de Mercado Libre, sincronizados automáticamente. Costos sincronizados desde el maestro.</div>
 
-    <div class="section-label">Estacionalidad — últimos 90 días</div>
-    <div class="card" style="position:relative;">
-      <button class="help-btn" type="button">?</button>
-      <div class="help-popover">
-        Suma la facturación de los últimos 90 días agrupada por día de la semana (no por fecha puntual). Te muestra qué días tienden a vender más, para saber cuándo reforzar stock, envíos o publicidad.
+      <details class="advanced-details" style="margin-top:0;">
+        <summary>Ver ventas individuales con número de orden (últimas 150)</summary>
+        <div class="card" style="margin-top:12px;">
+          <div class="mini-header-row"><span>Fecha / SKU</span><span>Monto</span></div>
+          <div id="ventasIndividualesBody"><div class="empty">Cargando…</div></div>
+        </div>
+      </details>
+
+      <div class="section-label">Medio de pago (período actual)</div>
+      <div class="card" id="paymentCard"><div class="empty">Cargando…</div></div>
+
+      <div class="section-label">Estacionalidad — últimos 90 días</div>
+      <div class="card" style="position:relative;">
+        <button class="help-btn" type="button">?</button>
+        <div class="help-popover">
+          Suma la facturación de los últimos 90 días agrupada por día de la semana (no por fecha puntual). Te muestra qué días tienden a vender más, para saber cuándo reforzar stock, envíos o publicidad.
+        </div>
+        <div class="bars" id="dowBars"><div class="empty">Cargando…</div></div>
       </div>
-      <div class="bars" id="dowBars"><div class="empty">Cargando…</div></div>
-    </div>
 
-    <div class="section-label">Tendencia mensual</div>
-    <div class="card" style="position:relative;">
-      <button class="help-btn" type="button">?</button>
-      <div class="help-popover">
-        Facturación total por mes calendario, de los últimos 6 meses (sin contar ventas canceladas). Sirve para ver la curva real del negocio en el tiempo, más allá de comparar solo dos períodos puntuales.
+      <div class="section-label">Tendencia mensual</div>
+      <div class="card" style="position:relative;">
+        <button class="help-btn" type="button">?</button>
+        <div class="help-popover">
+          Facturación total por mes calendario, de los últimos 6 meses (sin contar ventas canceladas). Sirve para ver la curva real del negocio en el tiempo, más allá de comparar solo dos períodos puntuales.
+        </div>
+        <div class="bars" id="monthlyBars"><div class="empty">Cargando…</div></div>
       </div>
-      <div class="bars" id="monthlyBars"><div class="empty">Cargando…</div></div>
-    </div>
-
     </div>
 
     <div class="tab-panel" data-tab-panel="rentabilidad">
-    <div class="section-label" style="margin-top:24px">Salud del negocio</div>
-    <div class="kpi-grid">
-      <div class="kpi-card">
-        <button class="help-btn" type="button">?</button>
-        <div class="help-popover">
-          Es una proyección lineal: toma lo que ya facturaste en lo que va del mes y lo multiplica por los días totales del mes, como si vendieras siempre al mismo ritmo diario. No contempla estacionalidad ni días buenos/malos — es una estimación simple, no una promesa.
+      <div class="section-label" style="margin-top:24px">Salud del negocio</div>
+      <div class="kpi-grid">
+        <div class="kpi-card">
+          <button class="help-btn" type="button">?</button>
+          <div class="help-popover">
+            Es una proyección lineal: toma lo que ya facturaste en lo que va del mes y lo multiplica por los días totales del mes, como si vendieras siempre al mismo ritmo diario. No contempla estacionalidad ni días buenos/malos — es una estimación simple, no una promesa.
+          </div>
+          <div class="kpi-label">RUN-RATE DEL MES</div>
+          <div class="kpi-value mono" id="kpiRunRate">—</div>
+          <div class="kpi-sub" id="kpiRunRateSub">—</div>
         </div>
-        <div class="kpi-label">RUN-RATE DEL MES</div>
-        <div class="kpi-value mono" id="kpiRunRate">—</div>
-        <div class="kpi-sub" id="kpiRunRateSub">—</div>
-      </div>
-      <div class="kpi-card">
-        <button class="help-btn" type="button">?</button>
-        <div class="help-popover">
-          Qué porcentaje de tu facturación del período depende de tus 3 productos más vendidos. Un número alto significa riesgo: si uno de esos SKU deja de venderse (se pausa, perdés el buybox, se agota), el golpe a tu facturación total es grande.
+        <div class="kpi-card">
+          <button class="help-btn" type="button">?</button>
+          <div class="help-popover">
+            Qué porcentaje de tu facturación del período depende de tus 3 productos más vendidos. Un número alto significa riesgo: si uno de esos SKU deja de venderse (se pausa, perdés el buybox, se agota), el golpe a tu facturación total es grande.
+          </div>
+          <div class="kpi-label">CONCENTRACIÓN TOP 3 SKU</div>
+          <div class="kpi-value mono" id="kpiConcentracion">—</div>
+          <div class="kpi-sub">del total facturado</div>
         </div>
-        <div class="kpi-label">CONCENTRACIÓN TOP 3 SKU</div>
-        <div class="kpi-value mono" id="kpiConcentracion">—</div>
-        <div class="kpi-sub">del total facturado</div>
-      </div>
-      <div class="kpi-card">
-        <button class="help-btn" type="button">?</button>
-        <div class="help-popover">
-          Porcentaje de ventas del período que terminaron canceladas, sobre el total de ventas. Un número alto puede señalar problemas de stock, precio mal cargado, o demoras en el despacho que llevan a que el comprador cancele.
+        <div class="kpi-card">
+          <button class="help-btn" type="button">?</button>
+          <div class="help-popover">
+            Porcentaje de ventas del período que terminaron canceladas, sobre el total de ventas. Un número alto puede señalar problemas de stock, precio mal cargado, o demoras en el despacho que llevan a que el comprador cancele.
+          </div>
+          <div class="kpi-label">TASA DE CANCELACIÓN</div>
+          <div class="kpi-value mono" id="kpiCancelacion">—</div>
+          <div class="kpi-sub" id="kpiCancelacionSub">—</div>
         </div>
-        <div class="kpi-label">TASA DE CANCELACIÓN</div>
-        <div class="kpi-value mono" id="kpiCancelacion">—</div>
-        <div class="kpi-sub" id="kpiCancelacionSub">—</div>
-      </div>
-      <div class="kpi-card">
-        <button class="help-btn" type="button">?</button>
-        <div class="help-popover">
-          Porcentaje real que se lleva Mercado Libre sobre el precio bruto de cada venta, calculado con la comisión real de cada operación (no un estimado). Te dice cuánto te queda antes de restar tus propios costos de mercadería.
+        <div class="kpi-card">
+          <button class="help-btn" type="button">?</button>
+          <div class="help-popover">
+            Porcentaje real que se lleva Mercado Libre sobre el precio bruto de cada venta, calculado con la comisión real de cada operación (no un estimado). Te dice cuánto te queda antes de restar tus propios costos de mercadería.
+          </div>
+          <div class="kpi-label">COMISIÓN EFECTIVA ML</div>
+          <div class="kpi-value mono" id="kpiComision">—</div>
+          <div class="kpi-sub">sobre precio bruto</div>
         </div>
-        <div class="kpi-label">COMISIÓN EFECTIVA ML</div>
-        <div class="kpi-value mono" id="kpiComision">—</div>
-        <div class="kpi-sub">sobre precio bruto</div>
-      </div>
-      <div class="kpi-card" style="grid-column: 1 / -1;">
-        <button class="help-btn" type="button">?</button>
-        <div class="help-popover">
-          Cuánto te queda de verdad después de descontar el costo de mercadería (no solo la comisión de ML). Solo cuenta las ventas de SKUs que ya tienen costo cargado desde el maestro. Debajo se muestra la cobertura de dos formas: por cantidad de SKUs y por peso real en tu facturación (esta última importa más — pocos SKUs sin costo pero de alta venta pesan más que muchos SKUs chicos sin costo).
+        <div class="kpi-card" style="grid-column: 1 / -1;">
+          <button class="help-btn" type="button">?</button>
+          <div class="help-popover">
+            Cuánto te queda de verdad después de descontar el costo de mercadería (no solo la comisión de ML). Solo cuenta las ventas de SKUs que ya tienen costo cargado desde el maestro. Debajo se muestra la cobertura de dos formas: por cantidad de SKUs y por peso real en tu facturación (esta última importa más — pocos SKUs sin costo pero de alta venta pesan más que muchos SKUs chicos sin costo).
+          </div>
+          <div class="kpi-label">MARGEN REAL</div>
+          <div class="kpi-value mono" id="kpiMargen">—</div>
+          <div class="kpi-sub" id="kpiMargenSub">—</div>
         </div>
-        <div class="kpi-label">MARGEN REAL</div>
-        <div class="kpi-value mono" id="kpiMargen">—</div>
-        <div class="kpi-sub" id="kpiMargenSub">—</div>
-      </div>
-      <div class="kpi-card">
-        <button class="help-btn" type="button">?</button>
-        <div class="help-popover">
-          Margen promedio en pesos por cada venta (no por unidad) — solo contando ventas de SKUs con costo cargado. Complementa al "ticket promedio" de arriba, que mide facturación pero no lo que realmente te queda.
+        <div class="kpi-card">
+          <button class="help-btn" type="button">?</button>
+          <div class="help-popover">
+            Margen promedio en pesos por cada venta (no por unidad) — solo contando ventas de SKUs con costo cargado. Complementa al "ticket promedio" de arriba, que mide facturación pero no lo que realmente te queda.
+          </div>
+          <div class="kpi-label">MARGEN PROM. POR VENTA</div>
+          <div class="kpi-value mono" id="kpiMargenProm">—</div>
+          <div class="kpi-sub">por venta, con costo conocido</div>
         </div>
-        <div class="kpi-label">MARGEN PROM. POR VENTA</div>
-        <div class="kpi-value mono" id="kpiMargenProm">—</div>
-        <div class="kpi-sub">por venta, con costo conocido</div>
-      </div>
-      <div class="kpi-card">
-        <button class="help-btn" type="button">?</button>
-        <div class="help-popover">
-          De tu facturación total, qué porcentaje corresponde a SKUs con costo cargado en el maestro — ponderado por plata real, no por cantidad de productos. Si este número es bajo, el "Margen real" de arriba está calculado sobre una porción chica de tu negocio.
+        <div class="kpi-card">
+          <button class="help-btn" type="button">?</button>
+          <div class="help-popover">
+            De tu facturación total, qué porcentaje corresponde a SKUs con costo cargado en el maestro — ponderado por plata real, no por cantidad de productos. Si este número es bajo, el "Margen real" de arriba está calculado sobre una porción chica de tu negocio.
+          </div>
+          <div class="kpi-label">COBERTURA DE COSTO</div>
+          <div class="kpi-value mono" id="kpiCobertura">—</div>
+          <div class="kpi-sub">de la facturación total</div>
         </div>
-        <div class="kpi-label">COBERTURA DE COSTO</div>
-        <div class="kpi-value mono" id="kpiCobertura">—</div>
-        <div class="kpi-sub">de la facturación total</div>
       </div>
-    </div>
 
-    <div id="rentabilidadBox"></div>
-
+      <div id="rentabilidadBox"></div>
     </div>
 
     <div class="tab-panel" data-tab-panel="caja">
-    <div class="section-label" style="margin-top:24px">Flujo de caja</div>
-    <div class="kpi-grid">
-      <div class="kpi-card">
+      <div class="section-label" style="margin-top:24px">Flujo de caja</div>
+      <div class="kpi-grid">
+        <div class="kpi-card">
+          <button class="help-btn" type="button">?</button>
+          <div class="help-popover">
+            Todo lo que entró (ventas) menos todo lo que salió (pagos hechos: proveedores, impuestos, sueldos, financiero, logística — todo lo cargado en el maestro). Es la ganancia real del negocio en el período, no solo el margen por producto.
+          </div>
+          <div class="kpi-label">GANANCIA NETA REAL</div>
+          <div class="kpi-value mono" id="kpiGananciaNeta">—</div>
+          <div class="kpi-sub" id="kpiGananciaNetaSub">—</div>
+        </div>
+        <div class="kpi-card">
+          <button class="help-btn" type="button">?</button>
+          <div class="help-popover">
+            Qué porcentaje de tus egresos del período se concentra en los 3 destinos de pago más grandes (proveedores, impuestos, financiero, etc.). Un número alto significa que tu salida de caja depende de pocos compromisos grandes.
+          </div>
+          <div class="kpi-label">CONCENTRACIÓN DE GASTO</div>
+          <div class="kpi-value mono" id="kpiConcentracionGasto">—</div>
+          <div class="kpi-sub">top 3 destinos de pago</div>
+        </div>
+        <div class="kpi-card">
+          <button class="help-btn" type="button">?</button>
+          <div class="help-popover">
+            Saldo disponible en tu cuenta de Mercado Pago, según el último reporte de Liberaciones sincronizado. Se actualiza solo cada ~42 min, de 7 a 24hs.
+          </div>
+          <div class="kpi-label">SALDO EN MERCADO PAGO</div>
+          <div class="kpi-value mono" id="kpiSaldoMP">—</div>
+          <div class="kpi-sub" id="kpiSaldoMPSub">—</div>
+          <div class="kpi-sub mono" id="kpiSaldoMPLiberar" style="margin-top:2px;">—</div>
+          <div class="kpi-sub" id="kpiSaldoMPRuns" style="margin-top:2px; font-size:10px;">—</div>
+        </div>
+      </div>
+
+      <div id="vencimientosBox"></div>
+      <div id="liberacionesBox"></div>
+
+      <div class="section-label">Flujo de caja proyectado</div>
+      <div class="card" style="padding:16px; position:relative;">
         <button class="help-btn" type="button">?</button>
         <div class="help-popover">
-          Todo lo que entró (ventas) menos todo lo que salió (pagos hechos: proveedores, impuestos, sueldos, financiero, logística — todo lo cargado en el maestro). Es la ganancia real del negocio en el período, no solo el margen por producto.
+          Parte del saldo actual en MP, suma las liberaciones futuras y resta los pagos pendientes por su fecha de vencimiento — día por día, próximos 45 días. Los pagos diferibles (categoría "devolución personal") se muestran aparte y no se restan. Más allá de la última liberación con datos reales, si activás el run-rate se suma un ingreso diario estimado.
         </div>
-        <div class="kpi-label">GANANCIA NETA REAL</div>
-        <div class="kpi-value mono" id="kpiGananciaNeta">—</div>
-        <div class="kpi-sub" id="kpiGananciaNetaSub">—</div>
+        <div id="proyeccionCallout" style="margin-bottom:12px;"></div>
+        <div id="proyeccionChart" style="margin-bottom:10px;"></div>
+        <div style="display:flex; align-items:center; gap:10px; flex-wrap:wrap; padding-top:10px; border-top:1px solid var(--border);">
+          <label style="display:flex; align-items:center; gap:6px; font-size:12px; color:var(--muted); cursor:pointer;">
+            <input type="checkbox" id="runRateToggle" style="accent-color:var(--amber);" />
+            Run-rate más allá de lo capturado
+          </label>
+          <div style="display:flex; align-items:center; gap:6px;">
+            <span style="font-size:12px; color:var(--muted);">$</span>
+            <input type="number" id="runRateInput" value="100000" style="width:110px; padding:6px 8px; border-radius:8px; border:1px solid var(--border); background:#0F0D09; color:var(--text); font-family:'IBM Plex Mono',monospace; font-size:12px;" />
+            <span style="font-size:12px; color:var(--muted);">/día neto</span>
+          </div>
+        </div>
+        <div id="proyeccionDiferibles" style="margin-top:10px;"></div>
       </div>
-      <div class="kpi-card">
+
+      <div class="section-label">Egresos por categoría</div>
+      <div class="card" style="position:relative;">
         <button class="help-btn" type="button">?</button>
         <div class="help-popover">
-          Qué porcentaje de tus egresos del período se concentra en los 3 destinos de pago más grandes (proveedores, impuestos, financiero, etc.). Un número alto significa que tu salida de caja depende de pocos compromisos grandes.
+          En qué se fue la plata este período, agrupado por categoría del maestro (Proveedores de productos, Impuestos, RRHH, Logística, Financiero, etc.).
         </div>
-        <div class="kpi-label">CONCENTRACIÓN DE GASTO</div>
-        <div class="kpi-value mono" id="kpiConcentracionGasto">—</div>
-        <div class="kpi-sub">top 3 destinos de pago</div>
+        <div class="bars" id="categoriaBars"><div class="empty">Cargando…</div></div>
       </div>
-      <div class="kpi-card">
+
+      <div class="section-label">Ingresos vs. egresos por mes</div>
+      <div class="card" style="position:relative;">
         <button class="help-btn" type="button">?</button>
         <div class="help-popover">
-          Saldo disponible en tu cuenta de Mercado Pago, según el último reporte de Liberaciones sincronizado. Se actualiza solo cada ~42 min, de 7 a 24hs.
+          Comparación mes a mes de lo que entró (ventas) contra lo que salió (pagos). El número final es lo que ganaste o perdiste ese mes en caja.
         </div>
-        <div class="kpi-label">SALDO EN MERCADO PAGO</div>
-        <div class="kpi-value mono" id="kpiSaldoMP">—</div>
-        <div class="kpi-sub" id="kpiSaldoMPSub">—</div>
-        <div class="kpi-sub mono" id="kpiSaldoMPLiberar" style="margin-top:2px;">—</div>
-        <div class="kpi-sub" id="kpiSaldoMPRuns" style="margin-top:2px; font-size:10px;">—</div>
+        <div id="flujoCajaBars"><div class="empty">Cargando…</div></div>
       </div>
-    </div>
 
-    <div id="vencimientosBox"></div>
-
-    <div id="liberacionesBox"></div>
-
-    <div class="section-label">Flujo de caja proyectado</div>
-    <div class="card" style="padding:16px; position:relative;">
-      <button class="help-btn" type="button">?</button>
-      <div class="help-popover">
-        Parte del saldo actual en MP, suma las liberaciones futuras y resta los pagos pendientes por su fecha de vencimiento — día por día, próximos 45 días. Los pagos diferibles (categoría "devolución personal") se muestran aparte y no se restan. Más allá de la última liberación con datos reales, si activás el run-rate se suma un ingreso diario estimado.
-      </div>
-      <div id="proyeccionCallout" style="margin-bottom:12px;"></div>
-      <div id="proyeccionChart" style="margin-bottom:10px;"></div>
-      <div style="display:flex; align-items:center; gap:10px; flex-wrap:wrap; padding-top:10px; border-top:1px solid var(--border);">
-        <label style="display:flex; align-items:center; gap:6px; font-size:12px; color:var(--muted); cursor:pointer;">
-          <input type="checkbox" id="runRateToggle" style="accent-color:var(--amber);" />
-          Run-rate más allá de lo capturado
-        </label>
-        <div style="display:flex; align-items:center; gap:6px;">
-          <span style="font-size:12px; color:var(--muted);">$</span>
-          <input type="number" id="runRateInput" value="100000" style="width:110px; padding:6px 8px; border-radius:8px; border:1px solid var(--border); background:#0F0D09; color:var(--text); font-family:'IBM Plex Mono',monospace; font-size:12px;" />
-          <span style="font-size:12px; color:var(--muted);">/día neto</span>
+      <div class="section-label">Meta de facturación mensual</div>
+      <div class="card" style="padding:14px 16px; position:relative;">
+        <button class="help-btn" type="button">?</button>
+        <div class="help-popover">
+          Cargás tu objetivo de facturación para el mes y la barra te muestra qué porcentaje ya alcanzaste con lo vendido hasta hoy. Se guarda solo en este navegador — no se comparte ni queda en la base de datos.
         </div>
+        <div class="goal-input-row">
+          <input type="number" id="goalInput" placeholder="Ej: 3000000" />
+          <span style="font-size:12px;color:var(--muted)">ARS / mes</span>
+        </div>
+        <div class="goal-bar-track"><div class="goal-bar-fill" id="goalBarFill" style="width:0%"></div></div>
+        <div class="kpi-sub" id="goalSub" style="margin-top:6px">Cargá tu objetivo mensual para ver el % cumplido.</div>
       </div>
-      <div id="proyeccionDiferibles" style="margin-top:10px;"></div>
-    </div>
-
-    <div class="section-label">Egresos por categoría</div>
-    <div class="card" style="position:relative;">
-      <button class="help-btn" type="button">?</button>
-      <div class="help-popover">
-        En qué se fue la plata este período, agrupado por categoría del maestro (Proveedores de productos, Impuestos, RRHH, Logística, Financiero, etc.).
-      </div>
-      <div class="bars" id="categoriaBars"><div class="empty">Cargando…</div></div>
-    </div>
-
-    <div class="section-label">Ingresos vs. egresos por mes</div>
-    <div class="card" style="position:relative;">
-      <button class="help-btn" type="button">?</button>
-      <div class="help-popover">
-        Comparación mes a mes de lo que entró (ventas) contra lo que salió (pagos). El número final es lo que ganaste o perdiste ese mes en caja.
-      </div>
-      <div id="flujoCajaBars"><div class="empty">Cargando…</div></div>
-    </div>
-
-
-    <div class="section-label">Meta de facturación mensual</div>
-    <div class="card" style="padding:14px 16px; position:relative;">
-      <button class="help-btn" type="button">?</button>
-      <div class="help-popover">
-        Cargás tu objetivo de facturación para el mes y la barra te muestra qué porcentaje ya alcanzaste con lo vendido hasta hoy. Se guarda solo en este navegador — no se comparte ni queda en la base de datos.
-      </div>
-      <div class="goal-input-row">
-        <input type="number" id="goalInput" placeholder="Ej: 3000000" />
-        <span style="font-size:12px;color:var(--muted)">ARS / mes</span>
-      </div>
-      <div class="goal-bar-track"><div class="goal-bar-fill" id="goalBarFill" style="width:0%"></div></div>
-      <div class="kpi-sub" id="goalSub" style="margin-top:6px">Cargá tu objetivo mensual para ver el % cumplido.</div>
-    </div>
-
     </div>
 
     <div class="tab-panel" data-tab-panel="compras">
-    <div class="section-label" style="margin-top:24px">Calculadora de compra</div>
-    <div class="card" style="padding:16px; position:relative;">
-      <button class="help-btn" type="button">?</button>
-      <div class="help-popover">
-        Mira cómo viene vendiendo cada producto últimamente (más que el histórico viejo) y te sugiere cuánto comprar para cubrir los días que elijas. "Reciente" reacciona rápido a cambios de tendencia; "Histórico completo" promedia todo por igual, sin darle más peso a lo último.
-      </div>
-
-      <div class="calc-row">
-        <div class="calc-field" style="flex:1.3">
-          <label>¿Para cuántos días querés stock?</label>
-          <input type="number" id="calcCoverage" value="15" min="1" />
+      <div class="section-label" style="margin-top:24px">Calculadora de compra</div>
+      <div class="card" style="padding:16px; position:relative;">
+        <button class="help-btn" type="button">?</button>
+        <div class="help-popover">
+          Mira cómo viene vendiendo cada producto últimamente (más que el histórico viejo) y te sugiere cuánto comprar para cubrir los días que elijas. "Reciente" reacciona rápido a cambios de tendencia; "Histórico completo" promedia todo por igual, sin darle más peso a lo último.
         </div>
-        <div class="calc-field">
-          <label>SKU (obligatorio)</label>
-          <input type="text" id="calcSkuFilter" placeholder="Ej: 238" />
-        </div>
-      </div>
 
-      <div class="calc-field" style="margin-top:4px;">
-        <label>¿Qué tanto priorizar lo reciente?</label>
-        <div class="presets" id="weightPresets" style="margin-bottom:0">
-          <button class="preset" data-preset="agresivo">Reciente</button>
-          <button class="preset" data-preset="moderado">Equilibrado</button>
-          <button class="preset" data-preset="plano">Histórico completo</button>
-        </div>
-      </div>
-
-      <details class="advanced-details">
-        <summary>Configuración avanzada</summary>
-        <div class="calc-row" style="margin-top:12px">
-          <div class="calc-field">
-            <label>Ventana "reciente" (días)</label>
-            <input type="number" id="calcCorte1" value="7" min="1" />
+        <div class="calc-row">
+          <div class="calc-field" style="flex:1.3">
+            <label>¿Para cuántos días querés stock?</label>
+            <input type="number" id="calcCoverage" value="15" min="1" />
           </div>
           <div class="calc-field">
-            <label>Corte del tramo medio (días)</label>
-            <input type="number" id="calcCorte2" value="30" min="2" />
-          </div>
-          <div class="calc-field">
-            <label>Historial total a mirar (días)</label>
-            <input type="number" id="calcLookback" value="90" min="3" />
+            <label>SKU (obligatorio)</label>
+            <input type="text" id="calcSkuFilter" placeholder="Ej: 238" />
           </div>
         </div>
-        <div id="calcDetalleCalculo" style="margin-top:12px; font-size:11.5px; color:var(--muted);"></div>
-      </details>
 
-      <div class="kpi-sub" id="calcStatus" style="margin-top:12px">Calculando…</div>
-    </div>
-    <div class="card">
-      <div class="mini-header-row"><span>SKU</span><span>Unidades a comprar</span></div>
-      <div id="buyTableBody"><div class="empty">Cargando…</div></div>
-    </div>
+        <div class="calc-field" style="margin-top:4px;">
+          <label>¿Qué tanto priorizar lo reciente?</label>
+          <div class="presets" id="weightPresets" style="margin-bottom:0">
+            <button class="preset" data-preset="agresivo">Reciente</button>
+            <button class="preset" data-preset="moderado">Equilibrado</button>
+            <button class="preset" data-preset="plano">Histórico completo</button>
+          </div>
+        </div>
+
+        <details class="advanced-details">
+          <summary>Configuración avanzada</summary>
+          <div class="calc-row" style="margin-top:12px">
+            <div class="calc-field">
+              <label>Ventana "reciente" (días)</label>
+              <input type="number" id="calcCorte1" value="7" min="1" />
+            </div>
+            <div class="calc-field">
+              <label>Corte del tramo medio (días)</label>
+              <input type="number" id="calcCorte2" value="30" min="2" />
+            </div>
+            <div class="calc-field">
+              <label>Historial total a mirar (días)</label>
+              <input type="number" id="calcLookback" value="90" min="3" />
+            </div>
+          </div>
+          <div id="calcDetalleCalculo" style="margin-top:12px; font-size:11.5px; color:var(--muted);"></div>
+        </details>
+
+        <div class="kpi-sub" id="calcStatus" style="margin-top:12px">Calculando…</div>
+      </div>
+      <div class="card">
+        <div class="mini-header-row"><span>SKU</span><span>Unidades a comprar</span></div>
+        <div id="buyTableBody"><div class="empty">Cargando…</div></div>
+      </div>
     </div>
 
     <div class="tab-panel" data-tab-panel="importar">
@@ -636,7 +641,62 @@
       </div>
     </div>
 
+    <!-- SECCIÓN TICKETS -->
+    <div class="tab-panel" data-tab-panel="tickets">
+      <div class="section-label" style="margin-top:24px">Reporte de Errores y Mejoras</div>
+      <div class="card" style="padding:16px;">
+        <div style="font-size:13px; color:var(--muted); margin-bottom:16px;">Completá este formulario para reportar fallas en el sistema o proponer nuevas funcionalidades.</div>
+
+        <form id="form-ticket" onsubmit="enviarTicket(event)" style="max-width: 600px;">
+          <div style="margin-bottom: 12px;">
+            <label for="ticket-tipo" style="display:block; margin-bottom:4px; font-size:13px; font-weight:600;">Tipo de reporte:</label>
+            <select id="ticket-tipo" required style="width:100%; box-sizing:border-box; padding:9px 10px; border-radius:8px; border:1px solid var(--border); background:#0F0D09; color:var(--text); font-family:inherit;">
+              <option value="error">🔴 Reportar un Error / Bug</option>
+              <option value="mejora">🟢 Sugerir una Mejora / Idea</option>
+            </select>
+          </div>
+
+          <div style="margin-bottom: 12px;">
+            <label for="ticket-asunto" style="display:block; margin-bottom:4px; font-size:13px; font-weight:600;">Asunto (breve):</label>
+            <input type="text" id="ticket-asunto" required placeholder="Ej: Falla al actualizar el stock del SKU 250" style="width:100%; box-sizing:border-box; padding:9px 10px; border-radius:8px; border:1px solid var(--border); background:#0F0D09; color:var(--text); font-family:inherit;">
+          </div>
+
+          <div style="margin-bottom: 16px;">
+            <label for="ticket-detalle" style="display:block; margin-bottom:4px; font-size:13px; font-weight:600;">Detalle del problema o propuesta:</label>
+            <textarea id="ticket-detalle" required rows="4" placeholder="Describí los pasos que hiciste o cómo te imaginás la mejora..." style="width:100%; box-sizing:border-box; resize:vertical; padding:9px 10px; border-radius:8px; border:1px solid var(--border); background:#0F0D09; color:var(--text); font-family:inherit;"></textarea>
+          </div>
+
+          <button type="submit" id="btn-enviar-ticket" style="padding:10px 16px; border-radius:8px; border:none; background:var(--amber); color:#15130E; font-weight:700; font-size:13px; cursor:pointer;">Generar Ticket</button>
+        </form>
+      </div>
+
+      <div class="section-label" style="margin-top:24px;">Mis Tickets Recientes</div>
+      <div class="card" style="padding:16px;">
+        <div style="display:flex; justify-content:flex-end; margin-bottom:12px;">
+          <button class="refresh-btn" style="width:auto; padding:0 12px; font-size:12px; font-weight:600; height:30px;" onclick="cargarTickets()">Actualizar</button>
+        </div>
+        <div style="max-height:40vh; overflow-y:auto; border:1px solid var(--border); border-radius:8px;">
+          <table style="width:100%; border-collapse:collapse; font-size:13px; text-align:left;">
+            <thead>
+              <tr style="background:var(--card);">
+                <th style="padding:10px; border-bottom:1px solid var(--border); color:var(--muted); font-size:11px; text-transform:uppercase;">Fecha</th>
+                <th style="padding:10px; border-bottom:1px solid var(--border); color:var(--muted); font-size:11px; text-transform:uppercase;">Tipo</th>
+                <th style="padding:10px; border-bottom:1px solid var(--border); color:var(--muted); font-size:11px; text-transform:uppercase;">Asunto</th>
+                <th style="padding:10px; border-bottom:1px solid var(--border); color:var(--muted); font-size:11px; text-transform:uppercase;">Estado</th>
+              </tr>
+            </thead>
+            <tbody id="tbody-tickets">
+              <tr><td colspan="4" style="padding:12px;">Cargando tickets...</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+    <!-- FIN SECCIÓN TICKETS -->
+
   </div>
+
+<div id="toast"></div>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script>
@@ -646,19 +706,18 @@
   var SUPABASE_URL = 'https://kvewsxrfogosjwehookj.supabase.co';
   var SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imt2ZXdzeHJmb2dvc2p3ZWhvb2tqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODU3OTA2OTksImV4cCI6MjEwMTM2NjY5OX0.6oyDPFG_8hAAULXCUn6uO7C-abxMSOxxMFFJ_xBFZHY';
 
-  // Guard: si el CDN de Supabase no cargó, avisamos en vez de dejar la pantalla en blanco.
   if(!window.supabase){
     document.body.innerHTML = '<div style="max-width:440px;margin:80px auto;padding:24px;font-family:sans-serif;color:#F2EDE1;background:#201C14;border:1px solid #332C1D;border-radius:12px;text-align:center;line-height:1.5;">No se pudo cargar un componente necesario (Supabase).<br>Revisá tu conexión a internet y recargá la página.</div>';
     return;
   }
 
   var sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
-  var authToken = null;      // access_token de la sesion; se refresca solo
+  var authToken = null;
   var appIniciada = false;
-  var STORAGE_KEY = 'coraz_dash_pw';
   var PRESET_KEY = 'coraz_dash_preset';
   var preset = localStorage.getItem(PRESET_KEY) || '30d';
-  var customRange = null; // { from, to, month } cuando se elige un mes especifico del desplegable
+  var customRange = null; 
+
   if(preset.indexOf('custom:') === 0){
     var restoredMonth = preset.slice(7);
     customRange = Object.assign({ month: restoredMonth }, rangeForMonth(restoredMonth));
@@ -669,8 +728,121 @@
     preset = '';
   }
 
+  // ---- Sistema de Toast para Tickets ----
+  var _toastTimer = null;
+  window.showToast = function(msg, tipo) {
+    var t = document.getElementById('toast');
+    if (!t) return;
+    t.textContent = msg;
+    t.className = 'show' + (tipo ? ' ' + tipo : '');
+    clearTimeout(_toastTimer);
+    _toastTimer = setTimeout(function() { t.className = ''; }, 3200);
+  };
+
+  // ---- Lógica de Tickets ----
+  function escapeHtml(s) { return String(s ?? '').replace(/[&<>"']/g, function(c) { return ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;' })[c]; }); }
+
+  window.enviarTicket = async function(event) {
+    event.preventDefault();
+    var btn = document.getElementById('btn-enviar-ticket');
+    var tipo = document.getElementById('ticket-tipo').value;
+    var asunto = document.getElementById('ticket-asunto').value.trim();
+    var detalle = document.getElementById('ticket-detalle').value.trim();
+
+    btn.disabled = true;
+    btn.textContent = 'Enviando...';
+
+    try {
+      var res = await sb.auth.getSession();
+      var userEmail = (res && res.data && res.data.session && res.data.session.user && res.data.session.user.email) || 'desconocido';
+
+      var insertRes = await sb.from('tickets').insert([{ 
+          tipo: tipo, asunto: asunto, detalle: detalle, estado: 'pendiente', user_email: userEmail 
+      }]);
+
+      if (insertRes.error) throw insertRes.error;
+
+      window.showToast('Ticket generado exitosamente.', 'ok');
+      document.getElementById('form-ticket').reset();
+      window.cargarTickets(); 
+    } catch (e) {
+      window.showToast('Error al enviar ticket: ' + e.message, 'bad');
+    }
+    
+    btn.disabled = false;
+    btn.textContent = 'Generar Ticket';
+  };
+
+  window.cargarTickets = async function() {
+    var tbody = document.getElementById('tbody-tickets');
+    if(!tbody) return;
+    tbody.innerHTML = '<tr><td colspan="4" style="padding:12px;">Cargando...</td></tr>';
+    
+    try {
+      var res = await sb.auth.getSession();
+      var userEmail = (res && res.data && res.data.session && res.data.session.user && res.data.session.user.email);
+      var isAdmin = userEmail === 'corazautopartes@gmail.com';
+
+      var query = await sb.from('tickets')
+        .select('*')
+        .order('created_at', { ascending: false })
+        .limit(30);
+
+      if (query.error) throw query.error;
+
+      if (!query.data || query.data.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="4" style="padding:12px;" class="muted">No hay tickets recientes.</td></tr>';
+        return;
+      }
+
+      tbody.innerHTML = query.data.map(function(t) {
+        var colorTipo = t.tipo === 'error' ? 'var(--red)' : 'var(--green)';
+        var badgeEstado = t.estado === 'pendiente' ? 'pendiente' : (t.estado === 'resuelto' ? 'aplicado' : 'parcial');
+        var txtEstado = t.estado ? t.estado.toUpperCase() : 'PENDIENTE';
+        var estadoHtml = '';
+        
+        if (isAdmin) {
+          estadoHtml = '<select onchange="cambiarEstadoTicket(' + t.id + ', this.value)" style="padding:4px 8px; font-size:11px; font-weight:bold; border-radius:6px; background:var(--card); color:var(--text); border:1px solid var(--border); cursor:pointer;">' +
+              '<option value="pendiente" ' + (t.estado === 'pendiente' ? 'selected' : '') + '>PENDIENTE</option>' +
+              '<option value="en revision" ' + (t.estado === 'en revision' ? 'selected' : '') + '>EN REVISIÓN</option>' +
+              '<option value="resuelto" ' + (t.estado === 'resuelto' ? 'selected' : '') + '>RESUELTO</option>' +
+              '<option value="rechazado" ' + (t.estado === 'rechazado' ? 'selected' : '') + '>RECHAZADO</option>' +
+            '</select>';
+        } else {
+          estadoHtml = '<span class="badge ' + badgeEstado + '">' + txtEstado + '</span>';
+        }
+
+        var dateStr = new Date(t.created_at).toLocaleString('es-AR', {day:'2-digit', month:'2-digit', hour:'2-digit', minute:'2-digit'});
+
+        return '<tr style="border-bottom:1px solid var(--border);">' +
+            '<td class="muted" style="white-space:nowrap; padding:10px;">' + dateStr + '</td>' +
+            '<td style="color:' + colorTipo + '; font-weight:600; text-transform:uppercase; padding:10px;">' + t.tipo + '</td>' +
+            '<td style="padding:10px;">' +
+              escapeHtml(t.asunto) +
+              '<div style="font-size:11px; color:var(--muted); margin-top:2px;">Reportado por: ' + escapeHtml(t.user_email || 'Desconocido') + '</div>' +
+            '</td>' +
+            '<td style="padding:10px;">' + estadoHtml + '</td>' +
+          '</tr>';
+      }).join('');
+    } catch (e) {
+      tbody.innerHTML = '<tr><td colspan="4" style="padding:12px; color:var(--red);">Error: ' + e.message + '</td></tr>';
+    }
+  };
+
+  window.cambiarEstadoTicket = async function(id, nuevoEstado) {
+    try {
+      var update = await sb.from('tickets').update({ estado: nuevoEstado }).eq('id', id);
+      if (update.error) throw update.error;
+      window.showToast('Estado del ticket actualizado a ' + nuevoEstado.toUpperCase(), 'ok');
+      window.cargarTickets(); 
+    } catch (e) {
+      window.showToast('Error al actualizar estado: ' + e.message, 'bad');
+      window.cargarTickets(); 
+    }
+  };
+
   var MESES_ES = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
-  function monthLabel(monthStr){ // '2025-08' -> 'Agosto 2025'
+  function monthLabel(monthStr){ 
     var parts = monthStr.split('-');
     var y = parts[0], m = parseInt(parts[1],10) - 1;
     return MESES_ES[m] + ' ' + y;
@@ -727,9 +899,7 @@
     return { from: isoDate(from), to: to };
   }
 
-  function fmtARS(n){
-    return new Intl.NumberFormat('es-AR', { style:'currency', currency:'ARS', maximumFractionDigits:0 }).format(n||0);
-  }
+  function fmtARS(n){ return new Intl.NumberFormat('es-AR', { style:'currency', currency:'ARS', maximumFractionDigits:0 }).format(n||0); }
   function fmtInt(n){ return new Intl.NumberFormat('es-AR').format(n||0); }
   function fmtPct(n){
     if(n === null || n === undefined) return '';
@@ -749,11 +919,8 @@
     return '·';
   }
 
-  function authHeader(){
-    return 'Bearer ' + (authToken || '');
-  }
+  function authHeader(){ return 'Bearer ' + (authToken || ''); }
 
-  // fetch con timeout (AbortController) y reintento ante red/5xx. Devuelve la Response.
   function fetchConReintento(url, opciones, cfg){
     opciones = opciones || {};
     cfg = cfg || {};
@@ -1083,7 +1250,6 @@
     if(window.__lastData) renderGoal(window.__lastData);
   });
 
-  // ---------- Calculadora de compra ponderada por tramos ----------
   var CORTE1_KEY = 'coraz_dash_corte1';
   var CORTE2_KEY = 'coraz_dash_corte2';
   var LOOKBACK_KEY = 'coraz_dash_lookback';
@@ -1129,7 +1295,6 @@
     var lookback = Math.max(corte2 + 1, parseInt(document.getElementById('calcLookback').value, 10) || 90);
     var coverage = Math.max(1, parseInt(document.getElementById('calcCoverage').value, 10) || 15);
 
-    // corrige inputs si el usuario dejo algo inconsistente (ej. corte2 < corte1)
     document.getElementById('calcCorte2').value = corte2;
     document.getElementById('calcLookback').value = lookback;
 
@@ -1147,7 +1312,6 @@
 
     function daysAgo(n){ var d = new Date(now); d.setDate(d.getDate() - n); return isoDate(d); }
 
-    // Tramo 1: hoy hacia atras corte1 dias. Tramo 2: corte1+1 hasta corte2. Tramo 3: corte2+1 hasta lookback.
     var t1 = { from: daysAgo(corte1 - 1), to: today, days: corte1 };
     var t2 = { from: daysAgo(corte2 - 1), to: daysAgo(corte1), days: corte2 - corte1 };
     var t3 = { from: daysAgo(lookback - 1), to: daysAgo(corte2), days: lookback - corte2 };
@@ -1165,7 +1329,7 @@
         { data: results[2], days: t3.days, weight: weights[2] }
       ];
 
-      var unitsBySku = {}; // sku -> [units_t1, units_t2, units_t3]
+      var unitsBySku = {};
       tramos.forEach(function(tramo, idx){
         (tramo.data.by_sku || []).forEach(function(row){
           if(!unitsBySku[row.sku]) unitsBySku[row.sku] = [0,0,0];
@@ -1182,7 +1346,6 @@
         var velPonderada = tramos.reduce(function(s,t,idx){ return s + t.weight * velTramos[idx]; }, 0) / weightSum;
         var toBuy = Math.ceil(velPonderada * coverage);
 
-        // tendencia: compara el tramo reciente contra el tramo mas viejo
         var velReciente = velTramos[0], velVieja = velTramos[2];
         var tendencia = 'estable';
         if(velVieja === 0 && velReciente > 0) tendencia = 'subiendo';
@@ -1340,7 +1503,6 @@
       runsEl.innerHTML = '<span style="color:' + runsColor + '">' + runsHoy + '/' + runsLimite + ' corridas hoy</span>';
     }
 
-    // vencidos + proximos
     var vencBox = document.getElementById('vencimientosBox');
     var vencidos = data.vencidos || [];
     var venc = data.vencimientos_proximos || [];
@@ -1373,7 +1535,6 @@
       vencBox.innerHTML = html;
     }
 
-    // dinero a liberar de Mercado Pago, desglosado por dia
     var libBox = document.getElementById('liberacionesBox');
     var liberaciones = data.liberaciones_pendientes || [];
     if(liberaciones.length === 0){
@@ -1409,7 +1570,6 @@
 
     renderProyeccion(data);
 
-    // desglose por categoria
     var catEl = document.getElementById('categoriaBars');
     var cats = (data.desglose_categoria || []).filter(function(c){ return c.categoria !== '0'; });
     if(cats.length === 0){
@@ -1426,7 +1586,6 @@
       }).join('');
     }
 
-    // flujo de caja mensual
     var flujoEl = document.getElementById('flujoCajaBars');
     var flujo = data.flujo_caja_mensual || [];
     if(flujo.length === 0){
@@ -1445,7 +1604,6 @@
     }
   }
 
-  // ---------- Flujo de caja proyectado ----------
   var RUNRATE_KEY = 'coraz_dash_runrate';
   var RUNRATE_ON_KEY = 'coraz_dash_runrate_on';
   var PROYECCION_DIAS = 45;
@@ -1486,7 +1644,7 @@
   }
 
   function renderProyeccionChart(puntos){
-    var w = 100, h = 34; // viewBox unidades, escala via CSS
+    var w = 100, h = 34; 
     var vals = puntos.map(function(p){ return p.saldo; });
     var maxV = Math.max.apply(null, vals.concat([0]));
     var minV = Math.min.apply(null, vals.concat([0]));
@@ -1619,7 +1777,6 @@
     sb.auth.signInWithPassword({ email: email, password: pw }).then(function(res){
       if(res.error){ showGate('Email o contraseña incorrectos.'); return; }
       document.getElementById('gatePass').value = '';
-      // el resto (token, ocultar gate, cargar) lo maneja onAuthStateChange
     });
   }
 
@@ -1629,7 +1786,9 @@
     setPresetButtons();
     load();
     loadBuyCalc();
+    window.cargarTickets(); // Carga de tickets inicial
   }
+
   sb.auth.onAuthStateChange(function(_e, session){
     if(session){
       authToken = session.access_token;
@@ -1698,6 +1857,7 @@
     document.getElementById('rangeTo').classList.add('active');
     load();
   });
+
   function positionPopover(btn, pop){
     var rect = btn.getBoundingClientRect();
     var popWidth = Math.min(220, window.innerWidth - 24);
@@ -1732,7 +1892,6 @@
 
   document.getElementById('refreshBtn').addEventListener('click', load);
 
-  // ---------- Pestañas ----------
   var TAB_KEY = 'coraz_dash_tab';
   function setTab(tab){
     document.querySelectorAll('.tab-btn').forEach(function(b){
@@ -1751,7 +1910,6 @@
   var savedTab = localStorage.getItem(TAB_KEY);
   if(savedTab) setTab(savedTab);
 
-  // ---------- Sincronizar ahora (ventas + costos + pagos, todo junto) ----------
   var SYNC_VENTAS_URL = 'https://kvewsxrfogosjwehookj.supabase.co/functions/v1/ml-sync-ventas';
   var SYNC_COSTOS_URL = 'https://kvewsxrfogosjwehookj.supabase.co/functions/v1/ms-sync-costos';
   var SYNC_PAGOS_URL = 'https://kvewsxrfogosjwehookj.supabase.co/functions/v1/ms-sync-pagos';
@@ -1802,9 +1960,8 @@
       });
   });
 
-  // ---------- Importar reportes históricos de Mercado Libre ----------
   var FN_IMPORT = SUPABASE_URL + '/functions/v1/import-ventas-historico';
-  var impLineas = [];          // líneas parseadas acumuladas
+  var impLineas = [];
   var impListoParaCargar = false;
 
   function cargarXLSX(){
@@ -1843,7 +2000,6 @@
   }
   function impHasSku(v){ return v !== null && v !== undefined && String(v).trim() !== '' && String(v).trim().toLowerCase() !== 'nan'; }
 
-  // Parsea un reporte "Ventas AR" de ML → array de líneas para ml_ventas_lineas
   function impParseReporte(arrayBuffer, filename){
     var wb = window.XLSX.read(new Uint8Array(arrayBuffer), {type:'array'});
     var ws = wb.Sheets[wb.SheetNames[0]];
@@ -1882,7 +2038,6 @@
     while(i < rows.length){
       var r = rows[i], skuHere = impHasSku(cell(r,iSku)), moneyHere = hasMoney(r);
       if(moneyHere && !skuHere){
-        // cabecera de carrito (plata, sin sku) → repartir entre los ítems siguientes
         var hdr = r, items = [], j = i + 1;
         while(j < rows.length && impHasSku(cell(rows[j],iSku)) && !hasMoney(rows[j])){ items.push(rows[j]); j++; }
         var f = impNum(cell(hdr,iCargo)), e = impNum(cell(hdr,iEnvio)), t = impNum(cell(hdr,iTotal));
@@ -2038,7 +2193,6 @@
     });
   });
 
-  // ---------- Exportar ventas del período a Excel ----------
   var FN_EXPORT = SUPABASE_URL + '/functions/v1/export-ventas';
   document.getElementById('exportBtn').addEventListener('click', function(){
     var btn = this, r = customRange || rangeFor(preset), txt = btn.textContent;
@@ -2091,7 +2245,6 @@
     });
   });
 
-  // El arranque (mostrar gate o app) lo maneja onAuthStateChange / getSession de Supabase Auth.
 })();
 </script>
 </body>
