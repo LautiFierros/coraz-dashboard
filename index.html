@@ -113,6 +113,41 @@
   .tab-panel{display:none;}
   .tab-panel.active{display:block;}
 
+  /* ---- Pulso económico ---- */
+  .pulso-alertas{display:flex; flex-direction:column; gap:8px; margin-bottom:14px;}
+  .pulso-alerta{display:flex; gap:10px; align-items:flex-start; padding:11px 13px; border-radius:12px; font-size:13px; line-height:1.4; border:1px solid;}
+  .pulso-alerta.rojo{background:#2A1714; border-color:var(--red); color:#F0C2B9;}
+  .pulso-alerta.amarillo{background:#2A1E14; border-color:var(--amber); color:var(--text);}
+  .pulso-alerta .dot{width:8px; height:8px; border-radius:50%; margin-top:5px; flex-shrink:0;}
+  .pulso-alerta.rojo .dot{background:var(--red);} .pulso-alerta.amarillo .dot{background:var(--amber);}
+  .hero-value.neg{color:var(--red);} .hero-value.pos{color:var(--green);}
+  .pos-txt{color:var(--green);} .neg-txt{color:var(--red);}
+  .thermo{padding:16px 16px 14px; position:relative;}
+  .thermo-head{display:flex; justify-content:space-between; align-items:baseline; gap:8px; flex-wrap:wrap; margin-bottom:10px;}
+  .thermo-big{font-size:26px; font-weight:700;}
+  .thermo-big small{font-size:13px; color:var(--muted); font-weight:500;}
+  .thermo-track{position:relative; background:#0F0D09; border-radius:8px; height:16px; overflow:hidden;}
+  .thermo-fill{height:100%; border-radius:8px;}
+  .thermo-sub{display:flex; justify-content:space-between; font-size:11.5px; color:var(--muted); margin-top:8px; gap:8px; flex-wrap:wrap;}
+  .pulso-rows{padding:6px 14px 10px;}
+  .pulso-row{display:grid; grid-template-columns:1fr auto; gap:10px; padding:8px 0; border-bottom:1px solid var(--border); font-size:13px; align-items:baseline;}
+  .pulso-row:last-child{border-bottom:none;}
+  .pulso-row .lbl{color:var(--muted);}
+  .pulso-row.total{font-weight:700;}
+  .pulso-row.total .lbl{color:var(--text);}
+  .pulso-cols{display:grid; grid-template-columns:repeat(3,1fr); gap:6px; padding:12px 14px;}
+  .pulso-col{background:#0F0D09; border-radius:10px; padding:10px; text-align:center;}
+  .pulso-col .k{font-size:10.5px; color:var(--muted); letter-spacing:.05em;}
+  .pulso-col .v{font-size:13px; font-weight:700; margin-top:4px; white-space:nowrap;}
+  .pulso-cardpad{padding-top:30px !important;}
+  .pulso-table{width:100%; border-collapse:collapse; font-size:12px;}
+  .pulso-table th{font-size:10px; color:var(--muted); letter-spacing:.05em; text-transform:uppercase; font-weight:600; text-align:right; padding:9px 8px; border-bottom:1px solid var(--border);}
+  .pulso-table th:first-child, .pulso-table td:first-child{text-align:left;}
+  .pulso-table td{padding:8px 6px; text-align:right; border-bottom:1px solid var(--border); white-space:nowrap;}
+  .pulso-table tr:last-child td{border-bottom:none;}
+  .pulso-table .est{color:var(--muted); font-size:10px;}
+  .pulso-note{font-size:11px; color:var(--muted); line-height:1.5; padding:0 4px; margin-bottom:14px;}
+
   .kpi-grid{display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-bottom:14px;}
   .kpi-card{background:var(--card); border:1px solid var(--border); border-radius:14px; padding:14px; position:relative;}
   .help-btn{
@@ -255,7 +290,8 @@
     <div id="errBox"></div>
 
     <div class="tab-bar" id="tabBar">
-      <button class="tab-btn active" data-tab="ventas">Ventas</button>
+      <button class="tab-btn active" data-tab="pulso">Pulso</button>
+      <button class="tab-btn" data-tab="ventas">Ventas</button>
       <button class="tab-btn" data-tab="rentabilidad">Rentabilidad</button>
       <button class="tab-btn" data-tab="caja">Caja</button>
       <button class="tab-btn" data-tab="compras">Compras</button>
@@ -264,7 +300,12 @@
       <button class="tab-btn" data-tab="tickets">Tickets</button>
     </div>
 
-    <div class="tab-panel active" data-tab-panel="ventas">
+    <div class="tab-panel active" data-tab-panel="pulso">
+      <div class="pulso-note" style="margin-top:4px">El pulso es siempre en vivo y no depende del período elegido arriba. Margen real = neto ML − mercadería − logística Flex (mismo cálculo que la app Márgenes).</div>
+      <div id="pulsoBox"><div class="card"><div class="empty">Cargando pulso…</div></div></div>
+    </div>
+
+    <div class="tab-panel" data-tab-panel="ventas">
       <div id="stoppedBox"></div>
 
       <div class="hero">
@@ -703,6 +744,7 @@
 (function(){
   var FN_BASE = 'https://kvewsxrfogosjwehookj.supabase.co/functions/v1/dashboard-ventas';
   var PAGOS_BASE = 'https://kvewsxrfogosjwehookj.supabase.co/functions/v1/dashboard-pagos';
+  var PULSO_BASE = 'https://kvewsxrfogosjwehookj.supabase.co/functions/v1/dashboard-pulso';
   var SUPABASE_URL = 'https://kvewsxrfogosjwehookj.supabase.co';
   var SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imt2ZXdzeHJmb2dvc2p3ZWhvb2tqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODU3OTA2OTksImV4cCI6MjEwMTM2NjY5OX0.6oyDPFG_8hAAULXCUn6uO7C-abxMSOxxMFFJ_xBFZHY';
 
@@ -1762,6 +1804,144 @@
       });
   }
 
+  // ---- Pulso económico ----
+  var MESES_CORTOS = ['ene','feb','mar','abr','may','jun','jul','ago','sep','oct','nov','dic'];
+  function mesCorto(iso){ var p = String(iso).split('-'); return MESES_CORTOS[parseInt(p[1],10)-1] + '-' + p[0].slice(2); }
+  function signoARS(n){ return (n < 0 ? '−' : '+') + fmtARS(Math.abs(n)); }
+  function clsSigno(n){ return n < 0 ? 'neg-txt' : 'pos-txt'; }
+  function fmtDec(n, d){ return new Intl.NumberFormat('es-AR', { minimumFractionDigits:d, maximumFractionDigits:d }).format(n||0); }
+  function fmtCorto(n){
+    var a = Math.abs(n||0);
+    var t = a >= 1e6 ? fmtDec(a/1e6, 2) + ' M' : fmtInt(Math.round(a/1e3)) + ' k';
+    return (n < 0 ? '−' : '') + t;
+  }
+  function helpBtn(txt){ return '<button class="help-btn" type="button">?</button><div class="help-popover">' + txt + '</div>'; }
+
+  var BUCKET_LABEL = { deuda:'Préstamos (MP, Galicia, Brubank, plan monotributo)', tarjetas:'Tarjetas (incluye factura ML e IIBB)', rrhh:'Personal', impuestos:'Impuestos y contador', operativo:'Operativo (internet, fletes, otros)' };
+
+  function renderPulso(d){
+    var box = document.getElementById('pulsoBox');
+    var rit = d.ritmo || {}, est = d.estructura || {}, eq = d.equilibrio || {}, ma = d.mes_actual || {}, cj = d.caja || {};
+    var proj = ma.proyeccion || {};
+    var h = '';
+
+    // Alertas
+    if(d.alertas && d.alertas.length){
+      h += '<div class="pulso-alertas">' + d.alertas.map(function(a){
+        return '<div class="pulso-alerta ' + escapeHtml(a.nivel) + '"><span class="dot"></span><span>' + escapeHtml(a.texto) + '</span></div>';
+      }).join('') + '</div>';
+    }
+
+    // Hero: resultado proyectado del mes
+    var mesNombre = mesCorto(ma.mes);
+    h += '<div class="hero">' + helpBtn('Margen real proyectado del mes (lo que ya ganaste + el ritmo de los últimos 7 días hasta fin de mes) menos la estructura fija mensual. Si es negativo, al ritmo actual el negocio no se paga solo este mes.') +
+      '<div class="hero-label">RESULTADO PROYECTADO · ' + mesNombre.toUpperCase() + '</div>' +
+      '<div class="hero-top"><div class="hero-value mono ' + (proj.resultado < 0 ? 'neg' : 'pos') + '">' + signoARS(proj.resultado || 0) + '</div></div>' +
+      '<div class="stats">' +
+        '<div><div class="stat-value mono">' + fmtARS(proj.margen) + '</div><div class="stat-label">Margen proyectado</div></div>' +
+        '<div><div class="stat-value mono">−' + fmtARS(est.ref_mensual) + '</div><div class="stat-label">Estructura fija</div></div>' +
+        '<div><div class="stat-value mono">' + fmtInt(proj.ordenes) + '</div><div class="stat-label">Órdenes proyectadas</div></div>' +
+      '</div>' +
+      '<div class="stats" style="margin-top:12px">' +
+        '<div><div class="stat-value mono ' + clsSigno(ma.resultado_a_hoy) + '">' + signoARS(ma.resultado_a_hoy || 0) + '</div><div class="stat-label">Resultado a hoy (día ' + ma.dia + '/' + ma.dias_mes + ')</div></div>' +
+        '<div><div class="stat-value mono">' + fmtARS(ma.margen) + '</div><div class="stat-label">Margen del mes</div></div>' +
+        '<div><div class="stat-value mono">' + fmtInt(ma.ordenes) + '</div><div class="stat-label">Órdenes del mes</div></div>' +
+      '</div></div>';
+
+    // Termómetro de equilibrio
+    var cumpl = eq.cumplimiento_7d_pct || 0;
+    var colorFill = cumpl >= 100 ? 'var(--green)' : (cumpl >= 70 ? 'var(--amber)' : 'var(--red)');
+    h += '<div class="section-label">Punto de equilibrio</div>';
+    h += '<div class="card thermo">' + helpBtn('Cuántas órdenes por día necesitás para cubrir la estructura fija, con el margen promedio por orden de los últimos 30 días. Se compara contra lo que vendiste por día en los últimos 7 días (sin contar hoy).') +
+      '<div class="thermo-head"><div class="thermo-big mono">' + fmtDec(rit.ordenes_dia_7d, 1) + ' <small>de ' + fmtDec(eq.ordenes_dia, 1) + ' órdenes/día</small></div>' +
+      '<div class="mono" style="font-weight:700; color:' + colorFill + '">' + cumpl + '%</div></div>' +
+      '<div class="thermo-track"><div class="thermo-fill" style="width:' + Math.min(100, cumpl) + '%; background:' + colorFill + '"></div></div>' +
+      '<div class="thermo-sub"><span>Últimos 30 días: ' + fmtDec(rit.ordenes_dia_30d, 1) + '/día</span><span>Equilibrio: ' + fmtInt(eq.ordenes_mes) + ' órdenes/mes</span><span>Hoy: ' + fmtInt(rit.ordenes_hoy) + '</span></div>' +
+      '</div>';
+
+    // Drivers
+    h += '<div class="section-label">Drivers · últimos 30 días</div><div class="kpi-grid">' +
+      '<div class="kpi-card">' + helpBtn('Margen real promedio que deja cada orden: neto ML − mercadería − logística Flex. Es la "unidad" que tiene que pagar la estructura fija.') + '<div class="kpi-label">MARGEN POR ORDEN</div><div class="kpi-value mono">' + fmtARS(rit.margen_por_orden_30d) + '</div><div class="kpi-sub">margen total ' + fmtARS(rit.margen_30d) + '</div></div>' +
+      '<div class="kpi-card">' + helpBtn('Margen real sobre el neto que liquida Mercado Libre (después de comisión y envío).') + '<div class="kpi-label">MARGEN % DEL NETO</div><div class="kpi-value mono">' + fmtDec(rit.margen_pct_neto_30d, 1) + '%</div><div class="kpi-sub">neto ' + fmtARS(rit.neto_30d) + '</div></div>' +
+      '<div class="kpi-card">' + helpBtn('Facturación bruta dividida por unidades vendidas.') + '<div class="kpi-label">TICKET POR UNIDAD</div><div class="kpi-value mono">' + fmtARS(rit.ticket_unidad_30d) + '</div><div class="kpi-sub">' + fmtInt(rit.ordenes_30d) + ' órdenes</div></div>' +
+      '<div class="kpi-card">' + helpBtn('Qué parte de la facturación bruta es del SKU 238. Alto = el negocio depende de un solo producto.') + '<div class="kpi-label">PESO SKU 238</div><div class="kpi-value mono">' + fmtDec(rit.pct_238_30d, 0) + '%</div><div class="kpi-sub">de la facturación</div></div>' +
+      '</div>';
+
+    // Estructura fija
+    var bk = est.por_bucket || {};
+    var keys = Object.keys(bk).sort(function(a,b){ return (bk[b]||0) - (bk[a]||0); });
+    var maxB = keys.length ? bk[keys[0]] : 1;
+    h += '<div class="section-label">Estructura fija mensual</div>';
+    h += '<div class="card" style="position:relative">' + helpBtn('Promedio de los últimos 3 meses cerrados de todo lo que no es mercadería ni logística Flex (esa ya está dentro del margen). Las tarjetas incluyen la factura mensual de ML y las percepciones de IIBB, que todavía no se reparten por venta.') +
+      '<div class="bars pulso-cardpad">' + keys.map(function(k){
+        var w = Math.max(4, Math.round(100 * bk[k] / maxB));
+        var deudaLike = (k === 'deuda' || k === 'tarjetas');
+        return '<div style="margin-bottom:10px"><div style="display:flex; justify-content:space-between; font-size:12px; margin-bottom:4px; gap:8px"><span style="color:var(--muted)">' + escapeHtml(BUCKET_LABEL[k] || k) + '</span><span class="mono">' + fmtARS(bk[k]) + '</span></div>' +
+          '<div class="bar-track" style="height:10px"><div class="bar-fill' + (deudaLike ? '' : ' top') + '" style="width:' + w + '%; background:' + (deudaLike ? 'var(--red)' : 'var(--amberDim)') + '"></div></div></div>';
+      }).join('') +
+      '</div><div class="pulso-rows" style="padding-top:0"><div class="pulso-row total"><span class="lbl">Total mensual</span><span class="mono">' + fmtARS(est.ref_mensual) + '</span></div>' +
+      '<div class="pulso-row"><span class="lbl">Préstamos + tarjetas</span><span class="mono neg-txt">' + fmtDec(est.pct_deuda, 0) + '%</span></div>' +
+      '<div class="pulso-row"><span class="lbl">Necesitás de margen por día</span><span class="mono">' + fmtARS(eq.margen_dia_necesario) + '</span></div>' +
+      '<div class="pulso-row"><span class="lbl">Cargado para ' + mesNombre + ' (hasta hoy)</span><span class="mono">' + fmtARS(est.cargada_mes_actual) + '</span></div></div></div>';
+
+    // Caja
+    var pos = cj.posicion || {}, lib = cj.liberaciones || {}, pen = cj.pendientes || {};
+    function colCaja(lbl, v){ return '<div class="pulso-col"><div class="k">' + lbl + '</div><div class="v mono ' + clsSigno(v) + '">' + signoARS(v || 0) + '</div></div>'; }
+    h += '<div class="section-label">Caja proyectada</div>';
+    h += '<div class="card" style="position:relative">' + helpBtn('Saldo de Mercado Pago + liberaciones programadas − pagos pendientes (incluye vencidos sin marcar). No incluye ventas futuras: es lo que pasa si mañana no vendieras nada. Las devoluciones personales quedan afuera.') +
+      '<div class="pulso-cols pulso-cardpad">' + colCaja('7 DÍAS', pos.d7) + colCaja('15 DÍAS', pos.d15) + colCaja('30 DÍAS', pos.d30) + '</div>' +
+      '<div class="pulso-rows" style="padding-top:0">' +
+        '<div class="pulso-row"><span class="lbl">Saldo MP</span><span class="mono">' + fmtARS(cj.saldo_mp) + '</span></div>' +
+        '<div class="pulso-row"><span class="lbl">Liberaciones 7 / 30 días</span><span class="mono">' + fmtARS(lib.d7) + ' / ' + fmtARS(lib.d30) + '</span></div>' +
+        '<div class="pulso-row"><span class="lbl">Pagos pendientes 7 / 30 días</span><span class="mono">' + fmtARS(pen.d7) + ' / ' + fmtARS(pen.d30) + '</span></div>' +
+        (pen.vencidos_n ? '<div class="pulso-row"><span class="lbl">Vencidos sin marcar (' + pen.vencidos_n + ')</span><span class="mono neg-txt">' + fmtARS(pen.vencidos) + '</span></div>' : '') +
+      '</div></div>';
+
+    // Serie mensual
+    var serie = (d.serie || []).slice().reverse();
+    h += '<div class="section-label">Resultado mes a mes</div>';
+    h += '<div class="card" style="position:relative; overflow-x:auto">' + helpBtn('Resultado = margen real − estructura fija pagada ese mes. Los importes son nominales (inflación): para comparar meses mirá las órdenes y el signo del resultado. Antes de ago-26 el margen no traía la logística Flex: se resta lo pagado a Brown ese mes (marcado ≈).') +
+      '<table class="pulso-table" style="margin-top:26px"><thead><tr><th>Mes</th><th>Órdenes</th><th>Margen</th><th>Fija</th><th>Resultado</th></tr></thead><tbody>' +
+      serie.map(function(r){
+        var esActual = r.mes === ma.mes;
+        if(esActual){
+          return '<tr><td class="mono">' + mesCorto(r.mes) + ' <span class="est">proy.</span></td>' +
+            '<td class="mono">' + fmtInt(proj.ordenes) + '</td>' +
+            '<td class="mono">' + fmtCorto(proj.margen) + '</td>' +
+            '<td class="mono">' + fmtCorto(est.ref_mensual) + '</td>' +
+            '<td class="mono ' + clsSigno(proj.resultado) + '">' + fmtCorto(proj.resultado) + '</td></tr>';
+        }
+        return '<tr><td class="mono">' + mesCorto(r.mes) + '</td>' +
+          '<td class="mono">' + fmtInt(r.ordenes) + '</td>' +
+          '<td class="mono">' + fmtCorto(r.margen - (r.ajuste_brown || 0)) + (r.ajuste_brown ? '<span class="est">≈</span>' : '') + '</td>' +
+          '<td class="mono">' + fmtCorto(r.fija) + '</td>' +
+          '<td class="mono ' + clsSigno(r.resultado) + '">' + fmtCorto(r.resultado) + '</td></tr>';
+      }).join('') + '</tbody></table></div>';
+
+    h += '<div class="pulso-note">Actualizado ' + new Date(d.generado_at).toLocaleString('es-AR', { hour:'2-digit', minute:'2-digit', day:'2-digit', month:'2-digit' }) +
+      '. Estructura fija: ' + escapeHtml(est.criterio || '') + '. Percepciones IIBB pendientes de definir con el contador (hoy cuentan dentro de Tarjetas).</div>';
+
+    box.innerHTML = h;
+  }
+
+  function loadPulso(){
+    var box = document.getElementById('pulsoBox');
+    fetchConReintento(PULSO_BASE, { cache:'no-store', headers:{ Authorization: authHeader() } }, { timeout: 20000, reintentos: 1 })
+      .then(function(resp){
+        if(resp.status === 401){ throw new Error('sesión vencida, volvé a ingresar.'); }
+        if(!resp.ok){ return resp.text().then(function(t){ throw new Error('HTTP ' + resp.status + ': ' + t.slice(0,200)); }); }
+        return resp.json();
+      })
+      .then(function(json){
+        if(json && json.error) throw new Error(json.error);
+        window.__lastPulso = json;
+        renderPulso(json);
+      })
+      .catch(function(e){
+        box.innerHTML = '<div class="err">No se pudo traer el pulso: ' + escapeHtml(e && e.message ? e.message : String(e)) + '</div>';
+      });
+  }
+
   function showGate(errMsg){
     document.getElementById('app').classList.add('hidden');
     document.getElementById('gate').classList.remove('hidden');
@@ -1785,6 +1965,7 @@
     document.getElementById('app').classList.remove('hidden');
     setPresetButtons();
     load();
+    loadPulso();
     loadBuyCalc();
     window.cargarTickets(); // Carga de tickets inicial
   }
@@ -1890,9 +2071,9 @@
   });
   window.addEventListener('resize', function(){ closeAllPopovers(); });
 
-  document.getElementById('refreshBtn').addEventListener('click', load);
+  document.getElementById('refreshBtn').addEventListener('click', function(){ load(); loadPulso(); });
 
-  var TAB_KEY = 'coraz_dash_tab';
+  var TAB_KEY = 'coraz_dash_tab_v2'; // v2: Pulso pasa a ser la portada
   function setTab(tab){
     document.querySelectorAll('.tab-btn').forEach(function(b){
       b.classList.toggle('active', b.dataset.tab === tab);
