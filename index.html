@@ -579,7 +579,7 @@
         <ul>
           <li><b>Mercado Libre (ML)</b>: ventas, publicaciones/catálogo, tipo de envío de cada orden.</li>
           <li><b>Mercado Pago (MP)</b>: saldo disponible en tu cuenta, pagos pendientes de liberación.</li>
-          <li><b>Excel "Productos Coraz.xlsx" (OneDrive, vía Microsoft Graph)</b>: costos de productos y pagos/gastos que cargás vos a mano.</li>
+          <li><b>Excel maestro "Productos Coraz.xlsm" (OneDrive, vía Microsoft Graph)</b>: costos de productos y pagos/gastos que cargás vos a mano.</li>
         </ul>
         <p>Todo esto vive en Supabase: la base de datos (Postgres), las funciones que hablan con cada API (Edge Functions) y el programador de tareas (pg_cron) que las dispara solo. El botón <b>"Sincronizar"</b> de arriba de la pestaña Ventas dispara ventas + costos + pagos + saldo MP todos juntos, a demanda, sin esperar al horario automático.</p>
       </div>
@@ -616,7 +616,7 @@
             <tr>
               <td><div class="job-name">ms-sync-costos</div><br><div class="job-name" style="margin-top:4px">ms-sync-pagos</div></td>
               <td class="freq">2x/día (8 y 20hs)</td>
-              <td>Lee el Excel "Productos Coraz.xlsx" (costos de productos y pagos/gastos). No hace falta más seguido porque ese archivo lo editás vos a mano — no cambia solo.</td>
+              <td>Lee el Excel maestro "Productos Coraz.xlsm" (costos de productos y pagos/gastos). No hace falta más seguido porque ese archivo lo editás vos a mano — no cambia solo.</td>
             </tr>
             <tr>
               <td><div class="job-name">stock-sync-ml-items</div></td>
