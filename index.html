@@ -311,7 +311,7 @@
       <div class="hero">
         <button class="help-btn" type="button">?</button>
         <div class="help-popover">
-          <b>Facturado</b>: total bruto vendido en el período (precio de venta, antes de comisiones de ML y de tu costo), sin contar canceladas. <b>Unidades</b>: artículos vendidos. <b>Ventas</b>: cantidad de operaciones válidas. <b>Ticket prom.</b>: facturado ÷ ventas. <b>Canceladas</b>: operaciones del período que ML marcó como canceladas; no suman en ningún número de arriba (se muestra el monto que se descontó). El % compara contra el período anterior de igual duración. Fuente: ventas de Mercado Libre sincronizadas.
+          <b>Facturado</b>: total bruto vendido en el período (precio de venta, antes de comisiones de ML y de tu costo), sin contar canceladas. <b>Unidades</b>: artículos vendidos. <b>Ventas</b>: cantidad de operaciones válidas. <b>Ticket prom.</b>: facturado ÷ ventas. <b>Canceladas</b>: operaciones del período que ML marcó como canceladas; no suman en ningún número de arriba (se muestra el monto que se descontó). El motivo de cada una figura en "Ventas individuales". No se cuentan como canceladas las órdenes que ML anula al dividir un carrito en varias órdenes ("pack dividido"), porque la venta sigue en las órdenes nuevas. El % compara contra el período anterior de igual duración. Fuente: ventas de Mercado Libre sincronizadas.
         </div>
         <div class="hero-label">FACTURADO EN EL PERIODO</div>
         <div class="hero-top">
@@ -349,13 +349,11 @@
 
       <div class="footer-note" id="footerNote">Datos de Mercado Libre, sincronizados automáticamente. Costos sincronizados desde el maestro.</div>
 
-      <details class="advanced-details" style="margin-top:0;">
-        <summary>Ver ventas individuales con número de orden (últimas 150)</summary>
-        <div class="card" style="margin-top:12px;">
-          <div class="mini-header-row"><span>Fecha / SKU</span><span>Monto</span></div>
-          <div id="ventasIndividualesBody"><div class="empty">Cargando…</div></div>
-        </div>
-      </details>
+      <div class="section-label" style="margin-top:18px;">Ventas individuales (últimas 150 del período)</div>
+      <div class="card">
+        <div class="mini-header-row"><span>Fecha / SKU</span><span>Monto</span></div>
+        <div id="ventasIndividualesBody"><div class="empty">Cargando…</div></div>
+      </div>
 
       <div class="section-label">Medio de pago (período actual)</div>
       <div class="card" id="paymentCard"><div class="empty">Cargando…</div></div>
@@ -1162,6 +1160,23 @@
     renderRentabilidadBox(data);
   }
 
+  // Escapa texto que viene de la API antes de meterlo en innerHTML.
+  function escHtml(s){
+    return String(s == null ? '' : s).replace(/[&<>"']/g, function(c){ return ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'})[c]; });
+  }
+
+  // Bloque "Cancelada: motivo · pedida por X". El texto ya viene traducido desde dashboard-ventas.
+  function renderMotivoCancelacion(c, real){
+    var etiqueta = real ? 'Cancelada' : 'No cuenta como cancelada';
+    var motivo = (c && c.motivo) ? c.motivo : 'Mercado Libre no informó el motivo';
+    var quien = (c && c.quien) ? ' · pedida por ' + escHtml(c.quien) : '';
+    var color = real ? 'var(--red)' : 'var(--muted)';
+    var bg = real ? 'rgba(193,80,62,0.10)' : 'rgba(148,139,118,0.10)';
+    return '<div style="margin:6px 0 2px; padding:6px 9px; border-radius:8px; background:' + bg + '; font-size:11.5px; line-height:1.35; color:var(--text);">' +
+      '<span style="color:' + color + '; font-weight:700;">' + etiqueta + ':</span> ' + escHtml(motivo) +
+      '<span style="color:var(--muted);">' + quien + '</span></div>';
+  }
+
   function renderVentasIndividuales(data){
     var el = document.getElementById('ventasIndividualesBody');
     var ventas = data.ventas_individuales || [];
@@ -1174,17 +1189,22 @@
       var fechaTxt = fecha.toLocaleString('es-AR', {day:'2-digit', month:'2-digit', hour:'2-digit', minute:'2-digit'});
       var link = 'https://vendedores.mercadolibre.com.ar/ventas/omni/listado?startPeriod=&sort=DATE_CLOSED_DESC&filters=&subFilters=&search=' + v.ml_order_id + '&limit=50&offset=0';
       var cancelado = String(v.status||'').toLowerCase().indexOf('cancel') !== -1;
+      // Pack dividido por ML: no es una cancelación real (la venta sigue en otra orden) → se muestra apagado, no en rojo.
+      var cancReal = cancelado && !(v.cancelacion && v.cancelacion.real === false);
+      var colorCanc = cancReal ? 'var(--red)' : 'var(--muted)';
       var envioBadge = v.tipo_envio
-        ? '<span class="mono" style="font-size:10px; padding:1px 7px; border-radius:20px; border:1px solid var(--border); color:var(--muted); letter-spacing:.02em;">' + v.tipo_envio + '</span>'
+        ? '<span class="mono" style="font-size:10px; padding:1px 7px; border-radius:20px; border:1px solid var(--border); color:var(--muted); letter-spacing:.02em;">' + escHtml(v.tipo_envio) + '</span>'
         : '';
+      var motivoHtml = cancelado ? renderMotivoCancelacion(v.cancelacion, cancReal) : '';
       return '<div class="detail-row">' +
         '<div class="detail-row-top">' +
           '<div>' +
-            '<div class="mono" style="font-size:12.5px;' + (cancelado ? 'color:var(--red);text-decoration:line-through;' : '') + '">' + v.sku + ' · ' + fechaTxt + '</div>' +
-            '<div class="mono" style="font-size:10.5px;color:var(--muted);">#' + v.ml_order_id + '</div>' +
+            '<div class="mono" style="font-size:12.5px;' + (cancelado ? 'color:' + colorCanc + ';text-decoration:line-through;' : '') + '">' + escHtml(v.sku) + ' · ' + fechaTxt + '</div>' +
+            '<div class="mono" style="font-size:10.5px;color:var(--muted);">#' + escHtml(v.ml_order_id) + '</div>' +
           '</div>' +
-          '<div class="mono detail-facturado" style="font-size:13px;">' + fmtARS(v.gross_amount) + '</div>' +
+          '<div class="mono detail-facturado" style="font-size:13px;' + (cancelado ? 'color:var(--muted);text-decoration:line-through;' : '') + '">' + fmtARS(v.gross_amount) + '</div>' +
         '</div>' +
+        motivoHtml +
         '<div class="detail-row-sub">' + envioBadge + '<a href="' + link + '" target="_blank" rel="noopener" style="color:var(--amber);text-decoration:none;">Ver en ML ↗</a></div>' +
       '</div>';
     }).join('');
