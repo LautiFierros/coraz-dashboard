@@ -249,7 +249,7 @@
         <div class="title">Panel de ventas</div>
       </div>
       <div style="display:flex; gap:8px;">
-        <button class="refresh-btn" id="syncBtn" title="Sincronizar ventas, costos y pagos ahora" style="width:auto; padding:0 12px; font-size:11px; font-weight:700; gap:6px;">
+        <button class="refresh-btn" id="syncBtn" title="Sincronizar ventas, costos, pagos y saldo de Mercado Pago ahora" style="width:auto; padding:0 12px; font-size:11px; font-weight:700; gap:6px;">
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
             <path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83"/>
           </svg>
@@ -470,7 +470,9 @@
         <div class="kpi-card">
           <button class="help-btn" type="button">?</button>
           <div class="help-popover">
-            Saldo disponible en tu cuenta de Mercado Pago, según el último reporte de Liberaciones sincronizado. Se actualiza solo cada ~42 min, de 7 a 24hs.
+            <b>Saldo:</b> plata disponible hoy en tu cuenta de Mercado Pago. Sale del reporte de Liberaciones de MP (el saldo de la última operación del reporte). Se actualiza solo 1 vez por hora, de 9 a 23hs, o con "Sincronizar".<br><br>
+            <b>A liberar:</b> pagos aprobados que MP todavía no liberó (próximos 45 días). Excluye los que ya se liberaron o que adelantaste con "Adelantar dinero": MP los sigue mostrando como pendientes, pero esa plata ya está en el saldo.<br><br>
+            <b>Corridas hoy:</b> reportes pedidos hoy contra el límite de 24 por día que pone Mercado Pago.
           </div>
           <div class="kpi-label">SALDO EN MERCADO PAGO</div>
           <div class="kpi-value mono" id="kpiSaldoMP">—</div>
@@ -645,13 +647,13 @@
             <tr>
               <td><div class="job-name">mp-sync-liberaciones</div></td>
               <td class="freq">cada 10 min</td>
-              <td>Pagos aprobados que Mercado Pago todavía no liberó, agrupados por fecha de liberación futura (próximos 45 días). Alimenta el cuadro "A liberar" de la pestaña Caja.</td>
+              <td>Pagos aprobados que Mercado Pago todavía no liberó, agrupados por fecha de liberación futura (próximos 45 días). Alimenta el cuadro "A liberar" de la pestaña Caja. Descarta los pagos que ya se liberaron o se adelantaron (los anota mp-sync-saldo), porque MP los sigue mostrando como pendientes.</td>
             </tr>
             <tr>
               <td><div class="job-name">mp-sync-saldo</div></td>
-              <td class="freq">~42 min, de 7 a 24hs</td>
-              <td>Saldo disponible ahora mismo en tu cuenta de Mercado Pago.
-                <div class="doc-badge limite">Mercado Pago solo deja generar 24 reportes de saldo por día — este intervalo está calculado para no pasarse: (17hs activas × 60) ÷ 24 ≈ 42 min. No corre entre las 00 y las 7, para no gastar corridas en horario sin ventas.</div>
+              <td class="freq">cada hora, de 9 a 23hs</td>
+              <td>Saldo disponible ahora mismo en tu cuenta de Mercado Pago. Le pide a MP un reporte de Liberaciones de los últimos 3 días, espera a que esté listo (MP tarda ~1 minuto) y toma el saldo de la última operación. De paso anota qué pagos ya se liberaron o se adelantaron, para que "A liberar" no los cuente dos veces.
+                <div class="doc-badge limite">Mercado Pago solo deja generar 24 reportes por día. El automático usa 15 (de 9 a 23hs) y quedan ~9 para "Sincronizar". Si el último sync fue hace menos de 30 min, el automático se saltea. Al apretar "Sincronizar", si MP todavía está armando el reporte, el panel espera y reintenta solo; ese reintento no gasta otra corrida.</div>
               </td>
             </tr>
             <tr>
@@ -2095,37 +2097,98 @@
   var SYNC_COSTOS_URL = 'https://kvewsxrfogosjwehookj.supabase.co/functions/v1/ms-sync-costos';
   var SYNC_PAGOS_URL = 'https://kvewsxrfogosjwehookj.supabase.co/functions/v1/ms-sync-pagos';
   var SYNC_SALDO_URL = 'https://kvewsxrfogosjwehookj.supabase.co/functions/v1/mp-sync-saldo?origen=manual';
+  // --- Config de la sincronización manual -----------------------------------------
+  // El saldo MP depende de un reporte que Mercado Pago tarda ~60-80s en armar. La función mp-sync-saldo
+  // espera hasta ~48s; si MP no terminó responde { pendiente:true } y el próximo llamado retoma ESE mismo
+  // reporte sin gastar otra corrida del cupo diario. Por eso el saldo tiene su propio timeout y reintentos.
+  var SYNC_CFG = {
+    timeoutGeneralMs: 60000,   // ventas, costos, pagos
+    saldoTimeoutMs: 58000,     // por intento de saldo MP
+    saldoMaxIntentos: 4,       // ~4 × 50s como máximo
+    saldoEstimadoMs: 80000,    // estimado inicial que se muestra en pantalla
+    saldoExtraPorPendienteMs: 30000
+  };
+
+  // fetch + validación común. Lanza Error con mensaje legible; '__handled__' si ya se mostró el login.
+  function syncLlamar(url, signal, auth){
+    return fetch(url, { signal: signal, cache: 'no-store', headers: auth })
+      .then(function(resp){
+        if(resp.status === 401){ showGate('La contraseña ya no es válida.'); throw new Error('__handled__'); }
+        if(!resp.ok) return resp.text().then(function(t){ throw new Error('HTTP ' + resp.status + ': ' + t.slice(0,150)); });
+        return resp.json();
+      });
+  }
+
+  // Saldo MP con reintentos mientras el reporte esté "pendiente". onPendiente avisa para recalcular el estimado.
+  function syncSaldoMP(auth, onPendiente){
+    var intento = 0;
+    function unIntento(){
+      intento++;
+      var ctrl = new AbortController();
+      var t = setTimeout(function(){ ctrl.abort(); }, SYNC_CFG.saldoTimeoutMs);
+      return syncLlamar(SYNC_SALDO_URL, ctrl.signal, auth)
+        .then(function(json){
+          clearTimeout(t);
+          if(json && json.pendiente && intento < SYNC_CFG.saldoMaxIntentos){
+            onPendiente(intento);
+            return unIntento();
+          }
+          if(!json || json.ok === false) throw new Error((json && json.error) || 'error desconocido');
+          return json;
+        }, function(err){
+          clearTimeout(t);
+          if(err && err.name === 'AbortError') throw new Error('Mercado Pago tardó demasiado. Probá de nuevo en un minuto (no gasta otra corrida).');
+          throw err;
+        });
+    }
+    return unIntento();
+  }
+
   document.getElementById('syncBtn').addEventListener('click', function(){
     var btn = this;
     btn.disabled = true;
     btn.classList.add('spinning');
-    btn.lastChild.textContent = ' Sincronizando…';
 
-    var controller = new AbortController();
-    var timeoutId = setTimeout(function(){ controller.abort(); }, 60000);
     var auth = { Authorization: authHeader() };
+    var controller = new AbortController();
+    var timeoutId = setTimeout(function(){ controller.abort(); }, SYNC_CFG.timeoutGeneralMs);
 
-    function llamar(url){
-      return fetch(url, { signal: controller.signal, cache: 'no-store', headers: auth })
-        .then(function(resp){
-          if(resp.status === 401){ showGate('La contraseña ya no es válida.'); throw new Error('__handled__'); }
-          if(!resp.ok) return resp.text().then(function(t){ throw new Error('HTTP ' + resp.status + ': ' + t.slice(0,150)); });
-          return resp.json();
-        })
-        .then(function(json){
-          if(json.ok === false) throw new Error(json.error || 'error desconocido');
-          return json;
-        });
+    // Progreso: X/4 tareas listas + tiempo restante estimado (se recalcula si el reporte de MP sigue pendiente).
+    var total = 4, listas = 0;
+    var t0 = Date.now();
+    var estimadoMs = SYNC_CFG.saldoEstimadoMs;
+    function pintarProgreso(){
+      var resta = Math.max(0, Math.round((estimadoMs - (Date.now() - t0)) / 1000));
+      btn.lastChild.textContent = ' Sincronizando ' + listas + '/' + total + (listas < total ? ' · resta ~' + Math.max(resta, 3) + 's' : '');
+    }
+    function marcarLista(p){ return p.finally(function(){ listas++; pintarProgreso(); }); }
+    pintarProgreso();
+    var tick = setInterval(pintarProgreso, 1000);
+
+    var tareas = [
+      marcarLista(syncLlamar(SYNC_VENTAS_URL, controller.signal, auth).then(syncValidar)),
+      marcarLista(syncLlamar(SYNC_COSTOS_URL, controller.signal, auth).then(syncValidar)),
+      marcarLista(syncLlamar(SYNC_PAGOS_URL, controller.signal, auth).then(syncValidar)),
+      marcarLista(syncSaldoMP(auth, function(){
+        estimadoMs = (Date.now() - t0) + SYNC_CFG.saldoExtraPorPendienteMs;
+        pintarProgreso();
+      }))
+    ];
+
+    function syncValidar(json){
+      if(json && json.ok === false) throw new Error(json.error || 'error desconocido');
+      return json;
     }
 
-    Promise.allSettled([llamar(SYNC_VENTAS_URL), llamar(SYNC_COSTOS_URL), llamar(SYNC_PAGOS_URL), llamar(SYNC_SALDO_URL)])
+    Promise.allSettled(tareas)
       .then(function(results){
         clearTimeout(timeoutId);
         var nombres = ['ventas', 'costos', 'pagos', 'saldo MP'];
         var fallos = [];
         results.forEach(function(r, i){
           if(r.status === 'rejected' && r.reason && r.reason.message !== '__handled__'){
-            fallos.push(nombres[i] + ': ' + r.reason.message);
+            var msg = r.reason.name === 'AbortError' ? 'tardó más de 60s' : r.reason.message;
+            fallos.push(nombres[i] + ': ' + msg);
           }
         });
         load();
@@ -2135,6 +2198,7 @@
         }
       })
       .finally(function(){
+        clearInterval(tick);
         btn.disabled = false;
         btn.classList.remove('spinning');
         btn.lastChild.textContent = ' Sincronizar';
