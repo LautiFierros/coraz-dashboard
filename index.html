@@ -311,7 +311,7 @@
       <div class="hero">
         <button class="help-btn" type="button">?</button>
         <div class="help-popover">
-          <b>Facturado</b>: total bruto vendido en el período (precio de venta, antes de comisiones de ML y de tu costo), sin contar canceladas. <b>Unidades</b>: artículos vendidos. <b>Ventas</b>: cantidad de operaciones. <b>Ticket prom.</b>: facturado ÷ ventas. El % compara contra el período anterior de igual duración.
+          <b>Facturado</b>: total bruto vendido en el período (precio de venta, antes de comisiones de ML y de tu costo), sin contar canceladas. <b>Unidades</b>: artículos vendidos. <b>Ventas</b>: cantidad de operaciones válidas. <b>Ticket prom.</b>: facturado ÷ ventas. <b>Canceladas</b>: operaciones del período que ML marcó como canceladas; no suman en ningún número de arriba (se muestra el monto que se descontó). El % compara contra el período anterior de igual duración. Fuente: ventas de Mercado Libre sincronizadas.
         </div>
         <div class="hero-label">FACTURADO EN EL PERIODO</div>
         <div class="hero-top">
@@ -330,6 +330,10 @@
           <div>
             <div class="stat-value mono" id="statTicket">— <span class="stat-delta mono" id="ticketDelta"></span></div>
             <div class="stat-label">Ticket prom.</div>
+          </div>
+          <div id="statCanceladasBox" title="Canceladas: no suman en Facturado, Unidades, Ventas ni Ticket">
+            <div class="stat-value mono" id="statCanceladas">—</div>
+            <div class="stat-label" id="statCanceladasLabel">Canceladas</div>
           </div>
         </div>
       </div>
@@ -399,7 +403,7 @@
         <div class="kpi-card">
           <button class="help-btn" type="button">?</button>
           <div class="help-popover">
-            Porcentaje de ventas del período que terminaron canceladas, sobre el total de ventas. Un número alto puede señalar problemas de stock, precio mal cargado, o demoras en el despacho que llevan a que el comprador cancele.
+            Porcentaje de operaciones del período que terminaron canceladas: canceladas ÷ (ventas válidas + canceladas). Un número alto puede señalar problemas de stock, precio mal cargado, o demoras en el despacho que llevan a que el comprador cancele.
           </div>
           <div class="kpi-label">TASA DE CANCELACIÓN</div>
           <div class="kpi-value mono" id="kpiCancelacion">—</div>
@@ -1015,12 +1019,23 @@
     }
   }
 
+  // Indicador "Canceladas N" del hero: rojo si hay alguna, con el monto que NO se sumó al facturado.
+  function renderCanceladas(canc){
+    var n = (canc && canc.count) || 0;
+    var valEl = document.getElementById('statCanceladas');
+    var lblEl = document.getElementById('statCanceladasLabel');
+    valEl.textContent = fmtInt(n);
+    valEl.style.color = n > 0 ? 'var(--red)' : 'var(--muted)';
+    lblEl.textContent = n > 0 ? 'Canceladas · −' + fmtARS(canc.gross || 0) : 'Canceladas';
+  }
+
   function render(data){
     var totals = data.totals || { gross:0, units:0, ventas:0 };
     document.getElementById('heroValue').textContent = fmtARS(totals.gross);
     document.getElementById('heroValue').classList.remove('loading');
     document.getElementById('statUnits').textContent = fmtInt(totals.units);
     document.getElementById('statVentas').textContent = fmtInt(totals.ventas);
+    renderCanceladas(data.cancelados);
 
     var td = data.totals_delta_pct;
     document.getElementById('heroDelta').innerHTML = (td === null || td === undefined) ? '' :
@@ -1122,7 +1137,7 @@
     cancEl.textContent = canc.toFixed(1) + '%';
     cancEl.style.color = canc > 8 ? 'var(--red)' : 'var(--text)';
     document.getElementById('kpiCancelacionSub').textContent =
-      (data.cancelados ? data.cancelados.count : 0) + ' de ' + (data.totals ? data.totals.ventas : 0) + ' ventas';
+      (data.cancelados ? data.cancelados.count : 0) + ' de ' + (data.operaciones_totales != null ? data.operaciones_totales : ((data.totals ? data.totals.ventas : 0) + (data.cancelados ? data.cancelados.count : 0))) + ' operaciones';
 
     var com = data.comision_efectiva_pct;
     document.getElementById('kpiComision').textContent = (com === null || com === undefined) ? 'sin datos' : com.toFixed(1) + '%';
