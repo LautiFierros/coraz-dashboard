@@ -350,8 +350,13 @@
       <div class="footer-note" id="footerNote">Datos de Mercado Libre, sincronizados automáticamente. Costos sincronizados desde el maestro.</div>
 
       <div class="section-label" style="margin-top:18px;">Ventas individuales (últimas 150 del período)</div>
-      <div class="card">
-        <div class="mini-header-row"><span>Fecha / SKU</span><span>Monto</span></div>
+      <div class="card" style="position:relative; overflow:visible;">
+        <button class="help-btn" type="button">?</button>
+        <div class="help-popover">
+          Cada venta del período con su número de orden, envío y monto. Las canceladas muestran el motivo que informa Mercado Libre.<br><br>
+          <b>Stock</b>: stock actual de ese SKU según el sistema de stock (tabla stock_sku, la misma de la app de Stock). En kits (ej. 27x4) es la cantidad de kits que se pueden armar con los componentes. Rojo: sin stock · ámbar: 3 o menos · verde: más de 3. "s/d": el SKU no está cargado en el sistema de stock.
+        </div>
+        <div class="mini-header-row" style="padding-right:38px;"><span>Fecha / SKU</span><span>Monto · stock</span></div>
         <div id="ventasIndividualesBody"><div class="empty">Cargando…</div></div>
       </div>
 
@@ -1177,6 +1182,23 @@
       '<span style="color:var(--muted);">' + quien + '</span></div>';
   }
 
+  // Umbrales del indicador de stock en "Ventas individuales" (unidades vendibles del SKU de venta).
+  var STOCK_CFG = { critico: 0, bajo: 3 };
+
+  // "Stock N" al lado del monto: rojo si no hay, ámbar si queda poco. En kits es la cantidad de kits armables.
+  function renderStockBadge(v){
+    var base = 'display:inline-block; margin-top:3px; font-size:10.5px; font-weight:700; padding:1px 8px; border-radius:20px; white-space:nowrap;';
+    if(v.stock_actual === null || v.stock_actual === undefined){
+      return '<span class="mono" title="Este SKU no está en el sistema de stock" style="' + base + 'color:var(--muted); border:1px dashed var(--border);">stock s/d</span>';
+    }
+    var n = Number(v.stock_actual);
+    var color = n <= STOCK_CFG.critico ? 'var(--red)' : (n <= STOCK_CFG.bajo ? 'var(--amber)' : 'var(--green)');
+    var tip = (v.stock_es_kit ? 'Kits que se pueden armar hoy con el stock de los componentes' : 'Unidades en stock hoy') +
+      (v.stock_updated_at ? ' · actualizado ' + new Date(v.stock_updated_at).toLocaleString('es-AR', {day:'2-digit', month:'2-digit', hour:'2-digit', minute:'2-digit'}) : '');
+    return '<span class="mono" title="' + escHtml(tip) + '" style="' + base + 'color:' + color + '; border:1px solid ' + color + ';">' +
+      'stock ' + fmtInt(n) + (v.stock_es_kit ? ' kits' : '') + '</span>';
+  }
+
   function renderVentasIndividuales(data){
     var el = document.getElementById('ventasIndividualesBody');
     var ventas = data.ventas_individuales || [];
@@ -1202,7 +1224,10 @@
             '<div class="mono" style="font-size:12.5px;' + (cancelado ? 'color:' + colorCanc + ';text-decoration:line-through;' : '') + '">' + escHtml(v.sku) + ' · ' + fechaTxt + '</div>' +
             '<div class="mono" style="font-size:10.5px;color:var(--muted);">#' + escHtml(v.ml_order_id) + '</div>' +
           '</div>' +
-          '<div class="mono detail-facturado" style="font-size:13px;' + (cancelado ? 'color:var(--muted);text-decoration:line-through;' : '') + '">' + fmtARS(v.gross_amount) + '</div>' +
+          '<div style="text-align:right;">' +
+            '<div class="mono detail-facturado" style="font-size:13px;' + (cancelado ? 'color:var(--muted);text-decoration:line-through;' : '') + '">' + fmtARS(v.gross_amount) + '</div>' +
+            renderStockBadge(v) +
+          '</div>' +
         '</div>' +
         motivoHtml +
         '<div class="detail-row-sub">' + envioBadge + '<a href="' + link + '" target="_blank" rel="noopener" style="color:var(--amber);text-decoration:none;">Ver en ML ↗</a></div>' +
