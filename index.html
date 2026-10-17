@@ -489,6 +489,18 @@
         </div>
       </div>
 
+      <div class="section-label">Frascos de obligaciones · próximos 30 días</div>
+      <div class="card" style="padding:16px; position:relative;">
+        <button class="help-btn" type="button">?</button>
+        <div class="help-popover">
+          Cada obligación es un frasco virtual: pagos PENDIENTES del maestro (sin "devolución personal"), Brown Flex estimado cuando todavía no tiene importe, y pagos fijos del mes que aún no cargaste ("proyectado").<br><br>
+          La plata se reparte en cascada por fecha de vencimiento: primero el saldo de MP de hoy y después cada liberación, en el día que llega. La barra llena es lo que ya está en el frasco hoy; la parte tenue es lo que entra antes de que venza.<br><br>
+          <b>Libre real</b> = saldo + liberaciones de los próximos 30 días − todo lo comprometido. Si es negativo, esa plata no es tuya aunque esté en la cuenta.<br><br>
+          Con "ventas estimadas" se suma el neto diario promedio de los últimos 28 días, a partir del día siguiente a la última liberación capturada (las ventas de hoy se liberan recién ahí).
+        </div>
+        <div id="frascosBox"><div class="empty">Cargando…</div></div>
+      </div>
+
       <div id="vencimientosBox"></div>
       <div id="liberacionesBox"></div>
 
@@ -1573,6 +1585,118 @@
       });
   }
 
+  // ===== Frascos de obligaciones (reserva virtual por obligación) =====
+  var frascosState = { data: null, estimado: false, verTodos: false };
+  var FRASCOS_VISIBLES = 8;
+
+  function frascoSumarDias(iso, n){ var d = new Date(iso + 'T12:00:00Z'); d.setUTCDate(d.getUTCDate() + n); return d.toISOString().slice(0, 10); }
+  function frascoFechaCorta(iso){ return new Date(iso + 'T12:00:00').toLocaleDateString('es-AR', { day:'2-digit', month:'2-digit' }); }
+  function frascoEsc(s){ return String(s == null ? '' : s).replace(/[&<>"']/g, function(c){ return { '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;' }[c]; }); }
+
+  // Misma cascada que fn_frascos_caja en Supabase; acá se recalcula para poder sumar ventas estimadas.
+  function calcularFrascos(fr, saldo, libs, conEstimado){
+    var hoy = fr.hoy;
+    var ev = [{ fecha: hoy, monto: Number(saldo || 0) }];
+    (libs || []).forEach(function(l){ if(l.fecha >= hoy) ev.push({ fecha: l.fecha, monto: Number(l.monto || 0) }); });
+    var estimadoTotal = 0;
+    if(conEstimado && fr.run_rate_diario > 0){
+      var manana = frascoSumarDias(hoy, 1);
+      var d = fr.run_rate_desde > manana ? fr.run_rate_desde : manana;
+      while(d <= fr.horizonte_hasta){ ev.push({ fecha: d, monto: fr.run_rate_diario }); estimadoTotal += fr.run_rate_diario; d = frascoSumarDias(d, 1); }
+    }
+    ev.sort(function(a, b){ return a.fecha < b.fecha ? -1 : (a.fecha > b.fecha ? 1 : 0); });
+    var cum = 0;
+    var cumEv = ev.map(function(e){ cum += e.monto; return { fecha: e.fecha, acum: cum }; });
+    function fondosHasta(f){ var v = 0; for(var i = 0; i < cumEv.length; i++){ if(cumEv[i].fecha <= f) v = cumEv[i].acum; else break; } return v; }
+    function fechaLleno(obj){ for(var i = 0; i < cumEv.length; i++){ if(cumEv[i].acum >= obj - 0.5) return cumEv[i].fecha; } return null; }
+    var f0 = fondosHasta(hoy), acum = 0;
+    var items = (fr.items || []).map(function(it){
+      acum += it.importe;
+      var previo = acum - it.importe;
+      var fechaRef = it.vencimiento > hoy ? it.vencimiento : hoy;
+      var enHoy = Math.min(it.importe, Math.max(0, f0 - previo));
+      var cubierto = Math.min(it.importe, Math.max(0, fondosHasta(fechaRef) - previo));
+      var lleno = fechaLleno(acum);
+      var estado = f0 >= acum - 0.5 ? 'cubierto' : (lleno && lleno <= fechaRef ? 'a_tiempo' : (lleno ? 'tarde' : 'sin_fondos'));
+      return Object.assign({}, it, { en_frasco_hoy: enHoy, cubierto_al_vencimiento: cubierto, faltante: it.importe - cubierto, fecha_lleno: lleno, estado: estado });
+    });
+    var fondos = Number(fr.fondos_conocidos || 0) + estimadoTotal;
+    return { items: items, fondos: fondos, estimadoTotal: estimadoTotal, libre: fondos - Number(fr.comprometido || 0) };
+  }
+
+  function renderFrascos(data){
+    if(data) frascosState.data = data;
+    var box = document.getElementById('frascosBox');
+    if(!box) return;
+    var d = frascosState.data || {};
+    var fr = d.frascos;
+    if(!fr){ box.innerHTML = '<div class="empty">Sin datos de frascos.</div>'; return; }
+    if(fr.error){ box.innerHTML = '<div class="empty">No se pudieron calcular los frascos: ' + frascoEsc(fr.error) + '</div>'; return; }
+    if(!fr.items || fr.items.length === 0){ box.innerHTML = '<div class="empty">No hay obligaciones en los próximos ' + fr.horizonte_dias + ' días.</div>'; return; }
+
+    var r = calcularFrascos(fr, d.saldo_mp, d.liberaciones_pendientes, frascosState.estimado);
+    var libreColor = r.libre < 0 ? 'var(--red)' : 'var(--green)';
+
+    var h = '';
+    h += '<div style="display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-bottom:10px;">' +
+      '<div><div style="font-size:11px; color:var(--muted); letter-spacing:.04em;">COMPROMETIDO</div><div class="mono" style="font-size:18px; font-weight:600;">' + fmtARS(fr.comprometido) + '</div><div style="font-size:11px; color:var(--muted);">' + fr.items.length + ' frascos</div></div>' +
+      '<div><div style="font-size:11px; color:var(--muted); letter-spacing:.04em;">FONDOS</div><div class="mono" style="font-size:18px; font-weight:600;">' + fmtARS(r.fondos) + '</div><div style="font-size:11px; color:var(--muted);">saldo + liberaciones' + (r.estimadoTotal > 0 ? ' + ventas est.' : '') + '</div></div>' +
+    '</div>';
+    h += '<div style="display:flex; justify-content:space-between; align-items:center; padding:10px 12px; border-radius:10px; border:1px solid ' + libreColor + '; margin-bottom:10px;">' +
+      '<span style="font-size:12px; color:' + libreColor + '; letter-spacing:.04em;">LIBRE REAL</span>' +
+      '<span class="mono" style="font-size:18px; font-weight:600; color:' + libreColor + ';">' + fmtARS(r.libre) + '</span></div>';
+
+    var labelEst = 'Sumar ventas estimadas (' + fmtARS(fr.run_rate_diario) + '/día, prom. ' + fr.run_rate_ventana_dias + 'd' +
+      (fr.run_rate_desde <= fr.horizonte_hasta ? ', desde ' + frascoFechaCorta(fr.run_rate_desde) : ', fuera del horizonte') + ')';
+    h += '<label style="display:flex; align-items:center; gap:6px; font-size:12px; color:var(--muted); cursor:pointer; margin-bottom:10px;">' +
+      '<input type="checkbox" id="frascosEstimadoToggle" style="accent-color:var(--amber);"' + (frascosState.estimado ? ' checked' : '') + ' />' + frascoEsc(labelEst) + '</label>';
+
+    var primero = r.items.filter(function(it){ return it.estado === 'sin_fondos' || it.estado === 'tarde'; })[0];
+    if(primero){
+      var vtxt = primero.dias_restantes < 0 ? 'venció el ' + frascoFechaCorta(primero.vencimiento) : 'vence el ' + frascoFechaCorta(primero.vencimiento);
+      h += '<div style="font-size:12px; color:var(--red); margin-bottom:8px;">Primer frasco que no llega: <b>' + frascoEsc(primero.descripcion) + '</b> (' + vtxt + '), faltan ' + fmtARS(primero.faltante) + '.</div>';
+    } else {
+      h += '<div style="font-size:12px; color:var(--green); margin-bottom:8px;">Todos los frascos se llenan antes de vencer.</div>';
+    }
+
+    var lista = frascosState.verTodos ? r.items : r.items.slice(0, FRASCOS_VISIBLES);
+    h += lista.map(function(it){
+      var pctHoy = it.importe > 0 ? Math.round(it.en_frasco_hoy / it.importe * 100) : 0;
+      var pctVenc = it.importe > 0 ? Math.round(it.cubierto_al_vencimiento / it.importe * 100) : 0;
+      var color = it.estado === 'cubierto' || it.estado === 'a_tiempo' ? 'var(--green)' : (it.estado === 'tarde' ? 'var(--amber)' : 'var(--red)');
+      var estadoTxt;
+      if(it.estado === 'cubierto') estadoTxt = 'lleno';
+      else if(it.estado === 'a_tiempo') estadoTxt = 'se llena el ' + frascoFechaCorta(it.fecha_lleno);
+      else if(it.estado === 'tarde') estadoTxt = 'se llena tarde, el ' + frascoFechaCorta(it.fecha_lleno);
+      else estadoTxt = 'sin fondos · faltan ' + fmtARS(it.faltante);
+      var vColor = it.dias_restantes < 0 ? 'var(--red)' : 'var(--muted)';
+      var vTxt = it.dias_restantes < 0 ? ('venció hace ' + Math.abs(it.dias_restantes) + ' d · ' + frascoFechaCorta(it.vencimiento))
+        : (it.dias_restantes === 0 ? 'vence hoy' : 'vence ' + frascoFechaCorta(it.vencimiento) + ' · en ' + it.dias_restantes + ' d');
+      var tags = '';
+      if(it.origen === 'estimado') tags += ' <span style="font-size:10px; color:var(--amber); border:1px solid var(--amberDim); border-radius:4px; padding:0 4px;">estimado</span>';
+      if(it.origen === 'fijo proyectado') tags += ' <span style="font-size:10px; color:var(--muted); border:1px solid var(--border); border-radius:4px; padding:0 4px;">proyectado</span>';
+      if(it.alerta) tags += ' <span style="font-size:10px; color:var(--red); border:1px solid var(--red); border-radius:4px; padding:0 4px;">' + frascoEsc(it.alerta) + '</span>';
+      return '<div style="padding:8px 0; border-top:1px solid var(--border);">' +
+        '<div style="display:flex; justify-content:space-between; gap:8px; font-size:13px;"><span>' + frascoEsc(it.descripcion) + tags + '</span><span class="mono" style="white-space:nowrap;">' + fmtARS(it.importe) + '</span></div>' +
+        '<div style="display:flex; justify-content:space-between; gap:8px; font-size:11px; margin:3px 0 5px;"><span style="color:' + vColor + ';">' + vTxt + '</span><span style="color:' + color + '; text-align:right;">' + estadoTxt + '</span></div>' +
+        '<div style="position:relative; height:6px; background:var(--card2); border-radius:3px; overflow:hidden;">' +
+          '<div style="position:absolute; left:0; top:0; bottom:0; width:' + pctVenc + '%; background:' + color + '; opacity:.35;"></div>' +
+          '<div style="position:absolute; left:0; top:0; bottom:0; width:' + pctHoy + '%; background:' + color + ';"></div>' +
+        '</div></div>';
+    }).join('');
+
+    if(r.items.length > FRASCOS_VISIBLES){
+      h += '<button type="button" id="frascosVerTodos" style="margin-top:8px; background:none; border:1px solid var(--border); color:var(--muted); border-radius:8px; padding:6px 10px; font-size:12px; cursor:pointer; width:100%;">' +
+        (frascosState.verTodos ? 'Ver menos' : 'Ver todos (' + r.items.length + ')') + '</button>';
+    }
+    box.innerHTML = h;
+
+    var tg = document.getElementById('frascosEstimadoToggle');
+    if(tg) tg.addEventListener('change', function(){ frascosState.estimado = tg.checked; renderFrascos(); });
+    var vt = document.getElementById('frascosVerTodos');
+    if(vt) vt.addEventListener('click', function(){ frascosState.verTodos = !frascosState.verTodos; renderFrascos(); });
+  }
+
   function renderPagos(data){
     var neta = data.ganancia_neta || 0;
     var el = document.getElementById('kpiGananciaNeta');
@@ -1673,6 +1797,7 @@
     }
 
     renderProyeccion(data);
+    renderFrascos(data);
 
     var catEl = document.getElementById('categoriaBars');
     var cats = (data.desglose_categoria || []).filter(function(c){ return c.categoria !== '0'; });
